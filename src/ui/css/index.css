@@ -1,0 +1,272 @@
+/*
+=====================================
+GENERAL STYLE
+=====================================
+*/
+* {
+  font-family: sans-serif;
+}
+
+body {
+    background-color: #FBFBFB;
+}
+
+
+/*
+=====================================
+BITHEREUM BACKGROUND
+=====================================
+*/
+#bithereum-background {
+    position: absolute;
+    width: 30rem;
+    height: 20rem;
+    margin-left: -15rem;
+    left: 50%;
+    top: 5rem;
+    background-image: url(../images/bithereum-background.png);
+    background-size: contain;
+    background-position: center center;
+    background-repeat: no-repeat;
+}
+
+@media (max-width: 40em) {
+  #bithereum-background {
+     width: 95%;
+     margin-left: -45%;
+  }
+}
+
+
+/*
+=====================================
+BOTTOM FOOTER
+=====================================
+*/
+#footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background-color: #1D2631;
+    box-sizing: border-box;
+    padding: 1rem 3rem;
+    text-align: center;
+}
+
+#footer button {
+  background-color: #FFC345;
+  outline: none;
+  border: none;
+  padding: 0.5rem 2rem;
+  border-radius: 0.5rem;
+  font-size: 1.1rem;
+}
+
+#footer button:hover {
+  opacity: 0.8;
+  cursor: pointer;
+}
+
+
+/*
+=====================================
+GENERAL POPUP STYLE
+=====================================
+*/
+.popup {
+  display: none;
+}
+
+.popup.show {
+  display: block;
+}
+
+.popup .background {
+    width: 100%;
+    height: 100%;
+    position: fixed;
+    top: 0;
+    left: 0;
+    background-color: rgba(0,0,0,0.95);
+    z-index: 0;
+}
+
+.popup .content {
+    position: absolute;
+    z-index: 1;
+    background-color: #FFFFFF;
+    border-radius: 0.8rem;
+    top: 6rem;
+    width: 29rem;
+    min-height: 10rem;
+    left: 50%;
+    margin-left: -14.5rem;
+    box-sizing: border-box;
+    padding: 2rem 1rem;
+    text-align: center;
+}
+
+@media(max-width: 40em) {
+  .popup .content {
+      width: 90%;
+      margin-left: -45%;
+  }
+}
+
+.popup .content .bth-logo {
+      width: 4rem;
+      height: 4rem;
+      margin: 0 auto 1rem auto;
+      background-image: url(../images/popup-logo.png);
+      background-size: contain;
+      background-repeat: no-repeat;
+}
+
+.popup .content .done-icon {
+      width: 4rem;
+      height: 4rem;
+      margin: 0 auto 1rem auto;
+      background-image: url(../images/popup-done.png);
+      background-size: contain;
+      background-repeat: no-repeat;
+}
+
+.popup .content h3 {
+  font-size: 1.5rem;
+  margin: 0.5rem 0 0.5rem 0;
+}
+
+.popup .content p {
+  line-height: 1.5;
+  margin: 0 0 1rem 0;
+  font-size: 0.85rem;
+  padding: 0 3rem;
+}
+
+.popup .content a.link {
+   color: #FFC345;
+   font-size: 0.9rem;
+   display: block;
+   margin: 0.5rem auto 3rem auto;
+}
+
+.popup .content button {
+  background-color: #FFC345;
+  outline: none;
+  border: none;
+  padding: 0.8rem 1.2rem;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  color: #FFFFFF;
+  margin: 0 0.8rem;
+  min-width: 9rem;
+}
+
+.popup .content button[disabled="disabled"] {
+  opacity: 0.5;
+  background-color: #EEEEEE;
+}
+
+.popup .content button[disabled="disabled"]:hover {
+  opacity: 0.5;
+  background-color: #EEEEEE;
+}
+
+.popup .content .keys .key {
+    margin-bottom: 1.5rem;
+}
+
+.popup .content .keys .key > span {
+    font-weight: bold;
+    text-align: left;
+    font-size: 0.7rem;
+    display: block;
+    padding: 0 0.3rem 0.5rem 0.3rem;
+    color: #666666;
+}
+
+.popup .content .keys .key > div {
+  border-bottom: 0.1rem dashed #DDDDDD;
+  background-color: #F7F7F7;
+  display: block;
+  width: 95%;
+  font-size: 0.8rem;
+  padding: 0.8rem 0.3rem;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.popup .content button:hover {
+  opacity: 0.8;
+  cursor: pointer;
+}
+
+.popup .content button.alt {
+  background-color: #1D2631;
+}
+
+.popup .content .fields {
+  width: 90%;
+  margin: 0 auto 2rem auto;
+}
+
+.popup .content .field {
+  width: 100%;
+  margin-bottom: 1.3rem;
+  display: block;
+}
+
+.popup .content .field label {
+  color: #1D2631;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+  text-align: left;
+  display: block;
+  font-size: 0.9rem;
+}
+
+.popup .content .field input[type="text"] {
+  width: 100%;
+  border: none;
+  border-radius: 0.5rem;
+  background-color: #EEEEEE;
+  box-sizing: border-box;
+  padding: 0.8rem 2rem;
+  text-align: center;
+}
+
+.popup .content .progress {
+    width: 90%;
+    height: 0.5rem;
+    border-radius: 1rem;
+    background-color: #EEEEEE;
+    position: relative;
+    display: block;
+    margin: 2rem auto;
+    overflow: hidden;
+}
+
+.popup .content .progress .bar {
+  position: absolute;
+  left: 0;
+  height: inherit;
+  border-radius: 1rem;
+  background-color: #1D2631;
+}
+/*
+=====================================
+POPUP: WELCOME
+=====================================
+*/
+.popup[data-name="addnode"] .content small {
+    color: #929395;
+    font-size: 0.8rem;
+}
+
+.popup[data-name="addnode"] .content .notes small {
+    display: inline-block;
+    min-width: 8rem;
+    margin: 0.3rem 0.9rem;
+    text-align: center;
+}

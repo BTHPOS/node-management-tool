@@ -1,0 +1,13 @@
+<div class="popup" ng-class="{'show': popup.welcome.isVisible}" data-name="welcome">
+    <div class="background" ng-click="popup.welcome.isVisible = false"></div>
+    <div class="content">
+        <div class="pages">
+            <div class="page">
+                <div class="bth-logo"></div>
+                <h3>Bithereum Node Tool</h3>
+                <p>The Bithereum node tool allows you to participate in proof of uptime by giving you the ability to add your new or existing full node.</p>
+                <button ng-click="popup.welcome.continue()">Continue</button>
+            </div>
+        </div>
+    </div>
+</div>

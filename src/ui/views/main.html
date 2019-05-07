@@ -1,0 +1,19 @@
+<section ng-controller="BNTController">
+    <!-- Main Content -->
+    <div class="holder">
+
+    </div>
+
+    <!-- Bithereum Logo -->
+    <div id="bithereum-background"></div>
+
+    <!-- Bottom Bar -->
+    <div id="footer">
+        <button ng-click="popup.addnode.show()">ADD NODE</button>
+    </div>
+
+    <!-- Popups -->
+    <ng-include src="'views/popup-addnode.html'"></ng-include>
+    <ng-include src="'views/popup-welcome.html'"></ng-include>
+
+</section>
