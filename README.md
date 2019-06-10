@@ -1,6 +1,6 @@
 # Bithereum Node Tool
 
-The Bithereum node tool (also referred to as "BTH Node Tool" or simply "Node Tool") is software designed to both run and manage BTH full nodes. Whether you're interested in participating in Proof-of-Uptime or need additional security, the BTH node tool makes it easy to get going with BTH full nodes in no time!
+The Bithereum node tool (also referred to as *BTH Node Tool* or simply *Node Tool*) is software designed to both run and manage BTH full nodes. Whether you're interested in participating in Proof-of-Uptime or need additional security, the BTH node tool makes it easy to get going with BTH full nodes in no time!
 
 **Please Note:** All participants of Proof-of-Uptime must run at least one instance of the node tool in order to get BTH for the nodes they run.
 
