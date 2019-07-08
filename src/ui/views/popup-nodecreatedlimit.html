@@ -1,0 +1,12 @@
+<div class="popup" ng-class="{'show': popup.nodecreatedlimit.isVisible}" data-name="nodecreatedlimit">
+    <div class="background" ng-click="popup.nodecreatedlimit.isVisible = false"></div>
+    <div class="content">
+        <div class="pages">
+            <div class="page">
+                <h3>Node Limit Reached</h3>
+                <p>The maximum number of nodes you can create using <strong>{{systemstate.memory}}GB</strong> of memory has been reached. Increase your memory to create more full nodes on this computer.</p>
+                <button ng-click="popup.nodecreatedlimit.continue()">Close</button>
+            </div>
+        </div>
+    </div>
+</div>

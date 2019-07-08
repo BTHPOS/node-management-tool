@@ -1,7 +1,46 @@
 <section ng-controller="BNTController">
     <!-- Main Content -->
-    <div class="holder">
-
+    <div data-name="holder">
+        <h1>BITHEREUM NODE TOOL</h1>
+        <p>Use the node tool to keep track of your full nodes as well as create new ones.</p>
+        <table>
+            <tr>
+                <th>Location</th>
+                <th><div data-name="ipaddress"></div> IP</th>
+                <th><div data-name="rpc"></div> RPC</th>
+                <th><div data-name="p2p"></div> P2P</th>
+                <th><div data-name="currentheight"></div> Height</th>
+                <th><div data-name="peercount"></div> Peers</th>
+                <th><div data-name="connectionstatus"></div> Status</th>
+                <th></th>
+                <th></th>
+            </tr>
+            <tr ng-repeat="node in configuration.existing_nodes">
+                <td>REMOTE</td>
+                <td>{{node.ipaddress}}</td>
+                <td>{{node.rpcport}}</td>
+                <td>{{node.p2pport}}</td>
+                <td>{{node.nodestats_getinfo.blocks}}</td>
+                <td>{{node.nodestats_getinfo.connections}}</td>
+                <td ng-show="node.nodestats_isrunning">REACHABLE</td>
+                <td ng-show="!node.nodestats_isrunning">UNREACHABLE</td>
+                <td><button ng-click="popup.editnode.show(node, $index, 'existing_nodes')">EDIT</button></td>
+                <td><button ng-click="popup.removenode.show($index, 'existing_nodes')">REMOVE</button></td>
+            </tr>
+            <tr ng-repeat="node in configuration.created_nodes">
+                <td>THIS MACHINE</td>
+                <td>{{node.ipaddress}}</td>
+                <td>{{node.rpcport}}</td>
+                <td>{{node.p2pport}}</td>
+                <td>{{node.nodestats_getinfo.blocks}}</td>
+                <td>{{node.nodestats_getinfo.connections}}</td>
+                <td ng-show="node.nodestats_isrunning">RUNNING</td>
+                <td ng-show="!node.nodestats_isrunning">NOT RUNNING</td>
+                <td><button ng-click="popup.editnode.show(node, $index, 'created_nodes')">EDIT</button></td>
+                <td><button ng-click="popup.removenode.show($index, 'created_nodes')">REMOVE</button></td>
+            </tr>
+        </table>
+        <p><small>You are currently using the node tool on a computer running the <strong>{{systemstate.operatingsystem}}</strong> operating system with <strong>{{systemstate.memory}}GB</strong> of memory. The maximum number of full nodes you can create is <strong>{{nodecreatedlimit}}</strong>; however, there is no limit to how many existing nodes you can track.</small></p>
     </div>
 
     <!-- Bithereum Logo -->
@@ -12,7 +51,15 @@
         <button ng-click="popup.addnode.show()">ADD NODE</button>
     </div>
 
+    <!-- Waiting Indicator -->
+    <div data-name="waiting-indicator" ng-show="isWaitingIndicatorVisible">
+        <div></div>
+    </div>
+
     <!-- Popups -->
+    <ng-include src="'views/popup-nodecreatedlimit.html'"></ng-include>
+    <ng-include src="'views/popup-removenode.html'"></ng-include>
+    <ng-include src="'views/popup-editnode.html'"></ng-include>
     <ng-include src="'views/popup-addnode.html'"></ng-include>
     <ng-include src="'views/popup-welcome.html'"></ng-include>
 

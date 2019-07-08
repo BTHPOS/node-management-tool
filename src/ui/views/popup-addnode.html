@@ -3,18 +3,12 @@
     <div class="content">
         <div class="pages">
           <div class="page" ng-show="popup.addnode.page == 1">
-              <div class="bth-logo"></div>
-              <h3>BITHEREUM NODE TOOL</h3>
-              <p>The Bithereum node tool allows you to participate in proof of uptime by giving you the ability to add your new or existing full node.</p>
-              <button ng-click="popup.addnode.next()">CONTINUE</button>
+              <h3>NODE SETUP</h3>
+              <p>Are you creating a new node or adding an existing node?</p>
+              <button ng-click="popup.addnode.next(3)">ADD EXISTING</button>
+              <button ng-click="popup.addnode.progressIfCanCreate()">CREATE NEW</button>
           </div>
           <div class="page" ng-show="popup.addnode.page == 2">
-              <h3>NODE SETUP</h3>
-              <p>Are you creating a new node or adding a node?</p>
-              <button ng-click="popup.addnode.next(4)">ADD NODE</button>
-              <button ng-click="popup.addnode.next(3)">CREATE NODE</button>
-          </div>
-          <div class="page" ng-show="popup.addnode.page == 3">
               <h3>NODE LOCATION</h3>
               <p>Choose a folder on your computer where you would like to store the Bithereum blockchain?</p>
               <button ng-click="popup.addnode.back()" class="alt">BACK</button>
@@ -23,8 +17,8 @@
                   <input id="node-location" ng-hide="true" onchange="angular.element(this).scope().popup.addnode.onChooseLocation()" type="file" webkitdirectory />
               </form>
           </div>
-          <div class="page" ng-show="popup.addnode.page == 4">
-              <div ng-if="!popup.addnode.fields.hasCreatedAddress">
+          <div class="page" ng-show="popup.addnode.page == 3">
+              <div ng-if="!popup.addnode.fields.wif">
                   <h3>NODE BTH ADDRESS</h3>
                   <p>Provide the BTH address you would like to associate with this new full node?</p>
                   <div class="fields">
@@ -34,9 +28,9 @@
                       </div>
                   </div>
                   <button ng-click="popup.addnode.back()" class="alt">BACK</button>
-                  <button ng-disabled="!popup.addnode.isValidBTHAddress()" ng-click="popup.addnode.next()">CONTINUE</button>
+                  <button ng-disabled="!validator.isValidIPADDRESS(popup.addnode.fields.address)" ng-click="popup.addnode.next()">CONTINUE</button>
               </div>
-              <div ng-if="popup.addnode.fields.hasCreatedAddress">
+              <div ng-if="popup.addnode.fields.wif">
                   <h3>CREATE BTH ADDRESS</h3>
                   <p>Your new BTH address and private key have been generated below for you. Keep them safe!</p>
                   <div class="keys">
@@ -53,12 +47,13 @@
                   <form id="node-keys-form">
                       <input id="node-keys" ng-hide="true" onchange="angular.element(this).scope().popup.addnode.onChooseKeySaveLocation()" type="file" webkitdirectory />
                   </form>
-                  <button ng-click="popup.addnode.fields.hasCreatedAddress = false" class="alt">BACK</button>
-                  <button ng-show="!popup.addnode.fields.location" ng-click="popup.addnode.next(5)">CONTINUE</button>
-                  <button ng-show="popup.addnode.fields.location" ng-click="popup.addnode.next(6)">CONTINUE</button>
+                  <button ng-show="!popup.addnode.fields.hasCreatedAddress" ng-click="popup.addnode.back()" class="alt">BACK</button>
+                  <button ng-show="popup.addnode.fields.hasCreatedAddress" ng-click="popup.addnode.fields.hasCreatedAddress = false" class="alt">BACK</button>
+                  <button ng-show="!popup.addnode.fields.location" ng-click="popup.addnode.next(4)">CONTINUE</button>
+                  <button ng-show="popup.addnode.fields.location" ng-click="popup.addnode.createNode()">CONTINUE</button>
               </div>
           </div>
-          <div class="page" ng-show="popup.addnode.page == 5">
+          <div class="page" ng-show="popup.addnode.page == 4">
               <h3>EXISTING NODE SETUP</h3>
               <p>Provide the following details of your full node.</p>
               <div class="fields">
@@ -84,51 +79,12 @@
                   </div>
               </div>
               <button ng-click="popup.addnode.back()" class="alt">BACK</button>
-              <button ng-click="popup.addnode.addExisting()">ADD NODE</button>
+              <button ng-disabled="!validator.isValidExistingNode(popup.addnode.fields)" ng-click="popup.addnode.addExisting()">ADD NODE</button>
           </div>
-          <div class="page" ng-show="popup.addnode.page == 6">
-              <h3>SYNC OPTIONS</h3>
-              <p>Would you like to pre-sync from one of Bithereum team's trusted full nodes or sync from the network?</p>
-              <p>
-                <small>
-                  <strong>NOTE:</strong>
-                  Syncing from the network can take days depending on your network speed, while pre-syncing usually takes an hour.
-                </small>
-              </p>
-              <button ng-click="popup.addnode.networkSync()" class="alt">Network Sync</button>
-              <button ng-click="popup.addnode.preSync()">Pre-Sync</button>
-              <div class="notes">
-                  <small><strong>Very Slow.</strong> More Secure.</small>
-                  <small><strong>Very Fast.</strong> Less Secure.</small>
-              </div>
-          </div>
-          <div class="page" ng-show="popup.addnode.page == 7">
-              <h3>PLEASE NOTE</h3>
-              <p>You will need around <strong>400GB</strong> of available disk space for the network. <strong>220GB</strong> will be used just for the initial blockchain download.</p>
-              <button ng-click="popup.addnode.back()" class="alt">BACK</button>
-              <button ng-click="popup.addnode.sync()">GOT IT</button>
-          </div>
-          <div class="page" ng-show="popup.addnode.page == 8">
-              <h3>PLEASE NOTE</h3>
-              <p>You will need at least <strong>16GB</strong> of free space to pre-sync your node. <strong>4GB</strong> of space will be used for the initial download.</p>
-              <button ng-click="popup.addnode.back(5)" class="alt">BACK</button>
-              <button ng-click="popup.addnode.sync()">GOT IT</button>
-          </div>
-          <div class="page" ng-show="popup.addnode.page == 9">
-              <h3>BLOCK DOWNLOAD</h3>
-              <p ng-show="!popup.addnode.fields.downloadStatus.waserror && !popup.addnode.fields.downloadStatus.wassuccess">Currently downloading pre-sync. <strong>DO NOT turn off your computer or close out of this window</strong>, otherwise your node will not be properly created.</p>
-              <p ng-show="popup.addnode.fields.downloadStatus.waserror">Unable to retrieve pre-sync blocks, try to download them again.</p>
-              <p ng-show="popup.addnode.fields.downloadStatus.wassuccess">The pre-sync blocks were successfully downloaded.</p>
-              <div class="progress" ng-show="!popup.addnode.fields.downloadStatus.waserror && popup.addnode.fields.downloadProgress.progress > 0">
-                  <div class="bar" ng-style="{width: popup.addnode.fields.downloadProgress.progress + '%'}"></div>
-              </div>
-              <button ng-click="popup.addnode.createNode()" ng-show="popup.addnode.fields.downloadStatus.wassuccess">CONTINUE</button>
-              <button ng-click="popup.addnode.sync()" ng-show="popup.addnode.fields.downloadStatus.waserror">RETRY DOWNLOAD</button>
-          </div>
-          <div class="page" ng-show="popup.addnode.page == 10">
+          <div class="page" ng-show="popup.addnode.page == 5">
               <div class="done-icon"></div>
               <h3>NODE HAS BEEN ADDED!</h3>
-              <p>Your node has been successfully added and is now currently syncing with the rest of the network.</p>
+              <p>Your node has been successfully added to the node tool.</p>
               <button ng-click="popup.addnode.hide()">DONE</button>
           </div>
         </div>

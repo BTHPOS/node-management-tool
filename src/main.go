@@ -3,39 +3,39 @@ package main
 import (
     "log"
     "os"
+    "fmt"
+    "os/exec"
     "time"
     "strconv"
+    "strings"
     "encoding/json"
     "crypto/rand"
     "github.com/Equanox/gotron"
     "github.com/mitchellh/go-homedir"
-    "github.com/thanhpk/randstr"
     "github.com/schollz/jsonstore"
     "github.com/cavaliercoder/grab"
-    "github.com/janosgyerik/portping"
     "github.com/vsergeev/btckeygenie/btckey"
+    "io/ioutil"
+    "github.com/pbnjay/memory"
+    "github.com/matishsiao/goInfo"
 )
-
-type Node struct {
-   ID string `json:"id"`
-   IPADDRESS string `json:"ipaddress"`
-   RPCUSER string `json:"rpcuser"`
-   RPCPASS string `json:"rpcpass"`
-   RPCPORT int `json:"rpcport"`
-   P2PPORT int `json:"p2pport"`
-   DATADIR string `json:"datadir"`
-   BTHADDRESS string `json:"bthaddress"`
-}
-
-type Config struct {
-    ID string `json:"id"`
-    EXISTING_NODES []Node `json:"existing_nodes"`
-    CREATED_NODES []Node `json:"created_nodes"`
-}
 
 type ConfigEvent struct {
     *gotron.Event
-    Config Config `json:"config"`
+    CONFIG string `json:"config"`
+}
+
+type PortsEvent struct {
+    *gotron.Event
+    RPCPORT int `json:"rpcport"`
+    PEERPORT int `json:"p2pport"`
+}
+
+type SystemStateEvent struct {
+    *gotron.Event
+    OS string `json:"operatingsystem"`
+    DIR string `json:"directory"`
+    MEMORY uint64 `json:"memory"`
 }
 
 type DownloadProgressEvent struct {
@@ -51,10 +51,22 @@ type DownloadStatusEvent struct {
     WasError bool `json:"waserror"`
 }
 
+type CheckNodeEvent struct {
+    *gotron.Event
+    ALIVE bool `json:"alive"`
+    RPCPORT float64 `json:"rpcport"`
+}
+
 type AddressEvent struct {
     *gotron.Event
     Address string `json:"address"`
     WIF string `json:"wif"`
+}
+
+type DirectoryExistsEvent struct {
+    *gotron.Event
+    DIRECTORY string `json:"directory"`
+    EXISTS bool `json:"exists"`
 }
 
 type Address struct {
@@ -70,56 +82,161 @@ const CONFIG_FOLDER_NAME = "bithereum-node-tool"
 const AVAILABLE_P2P_PORT_START = 18553
 const AVAILABLE_RPC_PORT_START = 18554
 const AVAILABLE_PORT_TIMEOUT = 2000
+var APP_PATH = ""
 
-func checkPortOpen(port int) bool {
-  var address = "127.0.0.1:" + strconv.Itoa(port)
-  var err = portping.Ping("tcp", address, 2000)
-  return err != nil
+func setInterval(someFunc func(), milliseconds int, async bool) chan bool {
+
+    // How often to fire the passed in function
+    // in milliseconds
+    interval := time.Duration(milliseconds) * time.Millisecond
+
+    // Setup the ticket and the channel to signal
+    // the ending of the interval
+    ticker := time.NewTicker(interval)
+    clear := make(chan bool)
+
+    // Put the selection in a go routine
+    // so that the for loop is none blocking
+    go func() {
+        for {
+
+            select {
+            case <-ticker.C:
+                if async {
+                    // This won't block
+                    go someFunc()
+                } else {
+                    // This will block
+                    someFunc()
+                }
+            case <-clear:
+                ticker.Stop()
+                return
+            }
+
+        }
+    }()
+
+    // We return the channel so we can pass in
+    // a value to it to clear the interval
+    return clear
+
 }
 
-func checkPortForAvilableFrom(port int) int {
+func setTimeout(someFunc func(), milliseconds int) {
+
+    timeout := time.Duration(milliseconds) * time.Millisecond
+
+    // This spawns a goroutine and therefore does not block
+    time.AfterFunc(timeout, someFunc)
+
+}
+
+func floatInSlice(a float64, list []float64) bool {
+    for _, b := range list {
+        if b == a {
+            return true
+        }
+    }
+    return false
+}
+
+func isNODERunning(port float64) bool {
+
+    // here we perform the pwd command.
+    // we can store the output of this in our out variable
+    // and catch any errors in err
+    out, err := exec.Command(
+      "ps",
+      "aux").CombinedOutput();
+
+    // if there is an error with our execution
+    // handle it here
+    if err != nil {
+        return true
+    } else {
+        // as the out variable defined above is of type []byte we need to convert
+        // this to a string or else we will see garbage printed out in our console
+        // this is how we convert it to a string
+        output := string(out[:])
+        return strings.Contains(output, "-rpcport="+fmt.Sprintf("%f", port))
+    }
+}
+
+func isPortInUse(port int) bool {
+
+    // here we perform the pwd command.
+    // we can store the output of this in our out variable
+    // and catch any errors in err
+    out, err := exec.Command(
+      "netstat",
+      "-anp",
+      "tcp").CombinedOutput();
+
+    // if there is an error with our execution
+    // handle it here
+    if err != nil {
+        return true
+    } else {
+        // as the out variable defined above is of type []byte we need to convert
+        // this to a string or else we will see garbage printed out in our console
+        // this is how we convert it to a string
+        output := string(out[:])
+        return strings.Contains(output, strconv.Itoa(port))
+    }
+}
+
+func checkPortForAvilableFrom(port int, ports []float64) int {
    var availablePort = 0
    var _port = port
+
    for {
       if availablePort == 0 {
-          if checkPortOpen(_port) {
+          if !isPortInUse(_port) && !floatInSlice(float64(_port), ports) {
             availablePort = _port;
+          } else if _port >= 65000 {
+              break;
           } else {
              _port++
           }
-      } else {
+      }  else {
         break;
       }
    }
+
    return availablePort
 }
 
-func saveConfig(c Config) bool {
+func saveConfigurations(text string) {
+    // Get home directory
+    var homeDir, homeErr = homedir.Dir()
+    if homeErr != nil {
+        panic(homeErr)
+    }
 
-  // Set our configuration to the keystore
-  ks := new(jsonstore.JSONStore)
-  ks.Set("config", c);
+    // Make sure our configuration directory exists, if it doesn't create it.
+    if _, err := os.Stat(homeDir + string(os.PathSeparator) + CONFIG_FOLDER_NAME); os.IsNotExist(err) {
+        os.MkdirAll(homeDir + string(os.PathSeparator) + CONFIG_FOLDER_NAME, os.ModePerm)
+    }
 
+    // Configuration path
+    var configPath = homeDir + string(os.PathSeparator) + CONFIG_FOLDER_NAME + string(os.PathSeparator) + CONFIG_NAME + ".json"
+    ioutil.WriteFile(configPath, []byte(text), 0644)
+}
+
+func readConfigurations() string {
   // Get home directory
-  homeDir, err := homedir.Dir()
-  if err != nil {
-      panic(err)
+  var homeDir, homeErr = homedir.Dir()
+  if homeErr != nil {
+    panic(homeErr)
   }
 
-  // Make sure our configuration directory exists, if it doesn't create it.
-  if _, err := os.Stat(homeDir + string(os.PathSeparator) + CONFIG_FOLDER_NAME); os.IsNotExist(err) {
-      os.MkdirAll(homeDir + string(os.PathSeparator) + CONFIG_FOLDER_NAME, os.ModePerm)
-  }
-
-  // Save the keystore to our JSON configuration file
   var configPath = homeDir + string(os.PathSeparator) + CONFIG_FOLDER_NAME + string(os.PathSeparator) + CONFIG_NAME + ".json"
-  err = jsonstore.Save(ks, configPath);
-
-  if err != nil {
-      return false
+  var output, readErr = ioutil.ReadFile(configPath)
+  if readErr == nil {
+      return string(output)
   }
-
-  return true
+  return ""
 }
 
 func saveKeys(address Address, wif Wif, path string) bool {
@@ -143,30 +260,6 @@ func saveKeys(address Address, wif Wif, path string) bool {
   }
 
   return true
-}
-
-func readConfig() Config {
-
-  // Get home directory
-  homeDir, err := homedir.Dir()
-  if err != nil {
-      panic(err)
-  }
-
-  // Absolute path of configuration file
-  var configPath = homeDir + string(os.PathSeparator) + CONFIG_FOLDER_NAME + string(os.PathSeparator) + CONFIG_NAME + ".json"
-
-  // Attempt to read the configuration
-  ks, err := jsonstore.Open(configPath)
-  if err == nil {
-      var config Config
-      err = ks.Get("config", &config)
-      if err == nil {
-          return config
-      }
-  }
-
-  return Config{};
 }
 
 func download(url string, path string, window *gotron.BrowserWindow) {
@@ -221,22 +314,204 @@ func download(url string, path string, window *gotron.BrowserWindow) {
     }
 }
 
+func startNODE(rpcuser string, rpcpass string, rpcport float64, peerport float64, datadir string) bool {
+
+    var prefixPath = APP_PATH + "/"
+
+    // here we perform the pwd command.
+    // we can store the output of this in our out variable
+    // and catch any errors in err
+    out, err := exec.Command(
+      prefixPath + "builds/macos64/bin/bethd",
+      "-daemon",
+      "-rpcuser="+rpcuser,
+      "-rpcpassword="+rpcpass,
+      "-rpcport="+fmt.Sprintf("%f", rpcport),
+      "-port="+fmt.Sprintf("%f", peerport),
+      "-datadir="+datadir,
+      "-dbcache=100",
+      "-maxmempool=10",
+      "-maxconnections=10",
+      "-prune=550").CombinedOutput();
+
+    // if there is an error with our execution
+    // handle it here
+    if err != nil {
+        // UNABLE TO START NODE
+        log.Println(err)
+        return false;
+    } else {
+        // as the out variable defined above is of type []byte we need to convert
+        // this to a string or else we will see garbage printed out in our console
+        // this is how we convert it to a string
+        output := string(out[:])
+        log.Println(output)
+        return true;
+    }
+}
+
+func stopNODE(rpcuser string, rpcpass string, rpcport float64, peerport float64) bool {
+
+    var prefixPath = APP_PATH + "/"
+
+    // here we perform the pwd command.
+    // we can store the output of this in our out variable
+    // and catch any errors in err
+    _, err := exec.Command(
+      prefixPath + "builds/macos64/bin/beth-cli",
+      "-rpcuser="+rpcuser,
+      "-rpcpassword="+rpcpass,
+      "-rpcport="+fmt.Sprintf("%f", rpcport),
+      "-port="+fmt.Sprintf("%f", peerport),
+      "stop").CombinedOutput();
+    // if there is an error with our execution
+    // handle it here
+    if err != nil {
+          // UNABLE TO STOP NODE
+          return false;
+    } else {
+        // as the out variable defined above is of type []byte we need to convert
+        // this to a string or else we will see garbage printed out in our console
+        // this is how we convert it to a string
+        // output := string(out[:])
+        // log.Println(output)
+        return true;
+    }
+}
+
+func directoryExists(dir string) bool {
+    if _, err := os.Stat(dir); os.IsNotExist(err) {
+        return false;
+    } else {
+        return true;
+    }
+}
+
+func removeDirForNODEIfPossible(dir string) bool {
+
+    exec.Command(
+      "rm",
+      "-rf",
+      dir).CombinedOutput();
+
+    return directoryExists(dir);
+}
+
+func initWindowEvents(window *gotron.BrowserWindow) {
+
+      window.On(&gotron.Event{Event: "system-state"}, func(bin []byte) {
+            var data map[string]interface{}
+            json.Unmarshal(bin, &data)
+            var memory = (memory.TotalMemory()/1000000000)
+            gi := goInfo.GetInfo()
+            window.Send(&SystemStateEvent{
+              Event: &gotron.Event{Event: "system-state"},
+              OS: gi.OS,
+              DIR: APP_PATH,
+              MEMORY: memory})
+      })
+
+      window.On(&gotron.Event{Event: "remove-datadir"}, func(bin []byte) {
+            var data map[string]interface{}
+            json.Unmarshal(bin, &data)
+            var datadir = data["datadir"].(string)
+            var dirExists = removeDirForNODEIfPossible(datadir);
+            window.Send(&DirectoryExistsEvent{
+              Event: &gotron.Event{Event: "remove-datadir"},
+              DIRECTORY: datadir,
+              EXISTS: dirExists})
+      })
+
+      window.On(&gotron.Event{Event: "start-node"}, func(bin []byte) {
+          var data map[string]interface{}
+          json.Unmarshal(bin, &data)
+          var rpcuser = data["rpcuser"].(string)
+          var rpcpass = data["rpcpass"].(string)
+          var rpcport = data["rpcport"].(float64)
+          var port  = data["port"].(float64)
+          var datadir = data["datadir"].(string)
+          startNODE(rpcuser, rpcpass, rpcport, port, datadir);
+      })
+
+      window.On(&gotron.Event{Event: "stop-node"}, func(bin []byte) {
+          var data map[string]interface{}
+          json.Unmarshal(bin, &data)
+          var rpcuser = data["rpcuser"].(string)
+          var rpcpass = data["rpcpass"].(string)
+          var rpcport = data["rpcport"].(float64)
+          var port  = data["port"].(float64)
+          stopNODE(rpcuser, rpcpass, rpcport, port);
+      })
+
+      window.On(&gotron.Event{Event: "check-node"}, func(bin []byte) {
+          var data map[string]interface{}
+          json.Unmarshal(bin, &data)
+          var rpcport = data["rpcport"].(float64)
+          var isRunning = isNODERunning(rpcport);
+          window.Send(&CheckNodeEvent{
+            Event: &gotron.Event{Event: "check-node"},
+            ALIVE: isRunning,
+            RPCPORT: rpcport})
+      })
+
+      window.On(&gotron.Event{Event: "save-configuration"}, func(bin []byte) {
+          var data map[string]interface{}
+          json.Unmarshal(bin, &data)
+          saveConfigurations(data["configuration"].(string))
+      })
+
+      window.On(&gotron.Event{Event: "fetch-configuration"}, func(bin []byte) {
+            var configuration = readConfigurations()
+            window.Send(&ConfigEvent{
+              Event: &gotron.Event{Event: "fetch-configuration"},
+              CONFIG: configuration})
+      })
+
+      window.On(&gotron.Event{Event: "generate-bth-address"}, func(bin []byte) {
+           var priv, _ = btckey.GenerateKey(rand.Reader)
+           window.Send(&AddressEvent{
+              Event: &gotron.Event{Event: "generate-bth-address"},
+              Address: priv.ToAddress(),
+              WIF: priv.ToWIF()})
+      })
+
+      window.On(&gotron.Event{Event: "save-keys"}, func(bin []byte) {
+           var data map[string]interface{}
+           json.Unmarshal(bin, &data)
+
+           var address = Address{}
+           address.ADDRESS = data["address"].(string)
+
+           var wif = Wif{}
+           wif.WIF = data["wif"].(string)
+
+           saveKeys(address, wif, data["path"].(string))
+      })
+
+      window.On(&gotron.Event{Event: "fetch-ports"}, func(bin []byte) {
+           var data map[string]interface{}
+           json.Unmarshal(bin, &data)
+
+           var _usedports = data["usedports"].([]interface{})
+           var usedports = make([]float64, len(_usedports))
+           for i := range _usedports {
+              usedports[i] = _usedports[i].(float64)
+           }
+
+           var rpcport = checkPortForAvilableFrom(AVAILABLE_RPC_PORT_START, usedports)
+           var p2pport = checkPortForAvilableFrom(AVAILABLE_P2P_PORT_START, usedports)
+
+           window.Send(&PortsEvent{
+             Event: &gotron.Event{Event: "fetch-ports"},
+             RPCPORT: rpcport,
+             PEERPORT: p2pport})
+      })
+}
+
 func run() {
 
-    // Attempt to read values from the
-    // saved configuration file
-    config := readConfig();
-
-
-    // Attempt to read the current config file.
-    // If we are unsuccessful at reading the config file,
-    // then we'll assume the file does not exist.
-    if config.ID == "" || config.CREATED_NODES == nil || config.EXISTING_NODES == nil {
-        config.ID = randstr.Hex(16)
-        config.CREATED_NODES = []Node{}
-        config.EXISTING_NODES = []Node{}
-        saveConfig(config)
-    }
+    // Set APP PATH
+    APP_PATH = os.Args[1]
 
     // Create a new browser window instance
     window, err := gotron.New("ui")
@@ -257,99 +532,11 @@ func run() {
         panic(err)
     }
 
-
-    window.On(&gotron.Event{Event: "config-fetch"}, func(bin []byte) {
-          window.Send(&ConfigEvent{
-            Event: &gotron.Event{Event: "config-fetch"},
-            Config: config})
-    })
-
-    window.On(&gotron.Event{Event: "generate-bth-address"}, func(bin []byte) {
-         var priv, _ = btckey.GenerateKey(rand.Reader)
-         window.Send(&AddressEvent{
-            Event: &gotron.Event{Event: "generate-bth-address"},
-            Address: priv.ToAddress(),
-            WIF: priv.ToWIF()})
-    })
-
-    window.On(&gotron.Event{Event: "createnode-download-presync"}, func(bin []byte) {
-         var data map[string]interface{}
-         json.Unmarshal(bin, &data)
-         download("http://ipv4.download.thinkbroadband.com/50MB.zip", data["path"].(string), window)
-    })
-
-    window.On(&gotron.Event{Event: "addnode-done"}, func(bin []byte) {
-         log.Println(string(bin));
-         var data map[string]interface{}
-         json.Unmarshal(bin, &data)
-         var node = Node{}
-         node.ID = randstr.Hex(16)
-         node.IPADDRESS = data["ipaddress"].(string)
-         node.RPCUSER = data["rpcusername"].(string)
-         node.RPCPASS = data["rpcpassword"].(string)
-         node.DATADIR = ""
-         node.BTHADDRESS = data["address"].(string)
-
-         var RPCPORT, _ = strconv.Atoi(data["rpcport"].(string))
-         var P2PPORT, _ = strconv.Atoi(data["p2pport"].(string))
-
-         node.RPCPORT = RPCPORT
-         node.P2PPORT = P2PPORT
-
-         config.EXISTING_NODES = append(config.EXISTING_NODES, node)
-         saveConfig(config)
-    })
-
-    window.On(&gotron.Event{Event: "createnode-done-networksync"}, func(bin []byte) {
-         log.Println(string(bin));
-         var data map[string]interface{}
-         json.Unmarshal(bin, &data)
-         var node = Node{}
-         node.ID = randstr.Hex(16)
-         node.IPADDRESS = "127.0.0.1"
-         node.RPCUSER = "bithereum"
-         node.RPCPASS = "bithereum"
-         node.RPCPORT = checkPortForAvilableFrom(AVAILABLE_RPC_PORT_START)
-         node.P2PPORT = checkPortForAvilableFrom(AVAILABLE_P2P_PORT_START)
-         node.DATADIR = data["path"].(string)
-         node.BTHADDRESS = data["address"].(string)
-         config.CREATED_NODES = append(config.CREATED_NODES, node)
-         saveConfig(config)
-    })
-
-    window.On(&gotron.Event{Event: "createnode-done-presync"}, func(bin []byte) {
-         log.Println(string(bin));
-         var data map[string]interface{}
-         json.Unmarshal(bin, &data)
-         var node = Node{}
-         node.ID = randstr.Hex(16)
-         node.IPADDRESS = "127.0.0.1"
-         node.RPCUSER = "bithereum"
-         node.RPCPASS = "bithereum"
-         node.RPCPORT = checkPortForAvilableFrom(AVAILABLE_RPC_PORT_START)
-         node.P2PPORT = checkPortForAvilableFrom(AVAILABLE_P2P_PORT_START)
-         node.DATADIR = data["path"].(string)
-         node.BTHADDRESS = data["address"].(string)
-         config.CREATED_NODES = append(config.CREATED_NODES, node)
-         saveConfig(config)
-    })
-
-    window.On(&gotron.Event{Event: "save-keys"}, func(bin []byte) {
-         log.Println(string(bin));
-         var data map[string]interface{}
-         json.Unmarshal(bin, &data)
-
-         var address = Address{}
-         address.ADDRESS = data["address"].(string)
-
-         var wif = Wif{}
-         wif.WIF = data["wif"].(string)
-
-         saveKeys(address, wif, data["path"].(string))
-    })
+    // Initialize Window Events
+    initWindowEvents(window)
 
     // Open dev tools must be used after window.Start
-    window.OpenDevTools()
+    // window.OpenDevTools()
 
     // Wait for the application to close
     <-done

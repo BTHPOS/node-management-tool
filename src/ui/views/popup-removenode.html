@@ -1,0 +1,13 @@
+<div class="popup" ng-class="{'show': popup.removenode.isVisible}" data-name="removenode">
+    <div class="background" ng-click="popup.removenode.hide()"></div>
+    <div class="content">
+        <div class="pages">
+          <div class="page">
+              <h3>REMOVE NODE</h3>
+              <p>Are you sure you want to stop and remove this node?</p>
+              <button ng-click="popup.removenode.yes()">YES</button>
+              <button ng-click="popup.removenode.no()">NO</button>
+          </div>
+        </div>
+    </div>
+</div>

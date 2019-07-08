@@ -1,0 +1,50 @@
+<div class="popup" ng-class="{'show': popup.editnode.isVisible}" data-name="editnode">
+    <div class="background" ng-click="popup.editnode.hide()"></div>
+    <div class="content">
+        <div class="pages">
+          <div class="page" ng-show="popup.editnode.page == 1">
+              <h3>UPDATE NODE DETAILS</h3>
+              <p>Provide the following details of your full node.</p>
+              <div class="fields">
+                  <div class="field" ng-show="popup.editnode.nodetype == 'existing_nodes'">
+                      <label>IP ADDRESS</label>
+                      <input type="text" ng-model="popup.editnode.fields.ipaddress" placeholder="(e.g. 31.192.193.11)">
+                  </div>
+                  <div class="field" ng-show="popup.editnode.nodetype == 'existing_nodes'">
+                      <label>RPC PORT</label>
+                      <input type="text" ng-model="popup.editnode.fields.rpcport" placeholder="(e.g. 18554)">
+                  </div>
+                  <div class="field" ng-show="popup.editnode.nodetype == 'existing_nodes'">
+                      <label>P2P PORT</label>
+                      <input type="text" ng-model="popup.editnode.fields.p2pport" placeholder="(e.g. 18553)">
+                  </div>
+                  <div class="field" ng-show="popup.editnode.nodetype == 'existing_nodes'">
+                      <label>RPC USERNAME</label>
+                      <input type="text" ng-model="popup.editnode.fields.rpcusername">
+                  </div>
+                  <div class="field" ng-show="popup.editnode.nodetype == 'existing_nodes'">
+                      <label>RPC PASSWORD</label>
+                      <input type="text" ng-model="popup.editnode.fields.rpcpassword">
+                  </div>
+                  <div class="field">
+                      <label>BTH ADDRESS</label>
+                      <input type="text" ng-model="popup.editnode.fields.address">
+                  </div>
+                  <div class="field" ng-show="popup.editnode.nodetype == 'created_nodes'">
+                      <label>DATADIR</label>
+                      <input type="text" disabled ng-model="popup.editnode.fields.datadir">
+                  </div>
+              </div>
+              <a href="javascript:void(0);" ng-click="popup.editnode.startNode()" ng-show="popup.editnode.nodetype == 'created_nodes' && !popup.editnode.fields.nodestats_isrunning" data-name="startnode">Start this node</a>
+              <a href="javascript:void(0);" ng-click="popup.editnode.stopNode()" ng-show="popup.editnode.nodetype == 'created_nodes' && popup.editnode.fields.nodestats_isrunning" data-name="stopnode">Stop this node</a>
+              <button ng-disabled="!validator.isValidExistingNode(popup.editnode.fields)" ng-click="popup.editnode.update()">UPDATE NODE</button>
+          </div>
+          <div class="page" ng-show="popup.editnode.page == 2">
+              <div class="done-icon"></div>
+              <h3>NODE HAS BEEN UPDATED!</h3>
+              <p>Your node has been successfully updated.</p>
+              <button ng-click="popup.editnode.hide()">DONE</button>
+          </div>
+        </div>
+    </div>
+</div>

@@ -11,7 +11,98 @@ body {
     background-color: #FBFBFB;
 }
 
+@media (max-width: 40em) {
+  div[data-name="holder"],
+  div#footer,
+  .popup {
+      display: none;
+  }
+}
 
+
+/*
+=====================================
+ANIMATIONS
+=====================================
+*/
+@-webkit-keyframes load1 {
+  0%,
+  80%,
+  100% {
+    box-shadow: 0 0;
+    height: 4em;
+  }
+  40% {
+    box-shadow: 0 -2em;
+    height: 5em;
+  }
+}
+@keyframes load1 {
+  0%,
+  80%,
+  100% {
+    box-shadow: 0 0;
+    height: 4em;
+  }
+  40% {
+    box-shadow: 0 -2em;
+    height: 5em;
+  }
+}
+
+
+
+/*
+=====================================
+WAITING INDICATOR
+=====================================
+*/
+div[data-name="waiting-indicator"] {
+      position: fixed;
+      left: 0;
+      top: 0;
+      background-color: rgba(0,0,0,0.8);
+      width: 100%;
+      height: 100%;
+      z-index: 2;
+}
+
+div[data-name="waiting-indicator"] div,
+div[data-name="waiting-indicator"] div:before,
+div[data-name="waiting-indicator"] div:after {
+  background: #FFC345;
+  -webkit-animation: load1 1s infinite ease-in-out;
+  animation: load1 1s infinite ease-in-out;
+  width: 1em;
+  height: 4em;
+}
+div[data-name="waiting-indicator"] div {
+  color: #FFC345;
+  text-indent: -9999em;
+  left: 50%;
+  top: 30%;
+  position: fixed;
+  font-size: 11px;
+  -webkit-transform: translateZ(0);
+  -ms-transform: translateZ(0);
+  transform: translateZ(0);
+  -webkit-animation-delay: -0.16s;
+  animation-delay: -0.16s;
+}
+div[data-name="waiting-indicator"] div:before,
+div[data-name="waiting-indicator"] div:after {
+  position: absolute;
+  top: 0;
+  content: '';
+}
+div[data-name="waiting-indicator"] div:before {
+  left: -1.5em;
+  -webkit-animation-delay: -0.32s;
+  animation-delay: -0.32s;
+}
+div[data-name="waiting-indicator"] div:after {
+  left: 1.5em;
+}
 /*
 =====================================
 BITHEREUM BACKGROUND
@@ -19,25 +110,184 @@ BITHEREUM BACKGROUND
 */
 #bithereum-background {
     position: absolute;
-    width: 30rem;
+    width: 20rem;
     height: 20rem;
-    margin-left: -15rem;
-    left: 50%;
-    top: 5rem;
+    right: 3rem;
+    bottom: 5rem;
     background-image: url(../images/bithereum-background.png);
     background-size: contain;
     background-position: center center;
     background-repeat: no-repeat;
+    opacity: 0.5;
 }
 
-@media (max-width: 40em) {
-  #bithereum-background {
-     width: 95%;
-     margin-left: -45%;
-  }
+/*
+=====================================
+BITHEREUM MAIN
+=====================================
+*/
+div[data-name="holder"] {
+    max-width: 64rem;
+    width: 95%;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
+    padding: 1rem 0;
 }
 
+div[data-name="holder"] h1 {
+  display: block;
+  text-align: center;
+}
 
+div[data-name="holder"] p {
+  font-size: 0.9rem;
+  text-align: center;
+  line-height: 1.8;
+  max-width: 40rem;
+  margin: 0 auto 1rem auto;
+}
+
+div[data-name="holder"] small {
+  color: #666666;
+}
+
+table {
+    text-align: center;
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 3rem 0;
+}
+
+table tr {
+  display:table-row;
+  border-bottom:1pt solid black;
+}
+
+table td, table th {
+  display:table-cell;
+  padding: 0.5rem 0.3rem;
+  font-size: 0.8rem;
+}
+
+table tr th {
+    font-size: 0.9rem;
+    color: #000000;
+}
+
+table tr:not(:first-child) {
+    cursor:pointer;
+}
+
+table tr:not(:first-child):nth-child(even) td {
+  background-color: #EEEEEE;
+}
+
+table tr:not(:first-child):hover td {
+    background-color: #FFC345;
+}
+
+div[data-name="ipaddress"] {
+    width: 1rem;
+    height: 1rem;
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-image: url(../images/globe.png);
+    background-size: contain;
+    display: inline-block;
+    position: relative;
+    top: 0.2rem;
+    left: -0.2rem;
+}
+
+div[data-name="currentheight"] {
+    width: 1rem;
+    height: 1rem;
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-image: url(../images/block.png);
+    background-size: contain;
+    display: inline-block;
+    position: relative;
+    top: 0.2rem;
+    left: -0.2rem;
+}
+
+div[data-name="nodestatus"] {
+    width: 1rem;
+    height: 1rem;
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-image: url(../images/sync.png);
+    background-size: contain;
+    display: inline-block;
+    position: relative;
+    top: 0.2rem;
+    left: -0.2rem;
+}
+
+div[data-name="peercount"] {
+    width: 1rem;
+    height: 1rem;
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-image: url(../images/coin.png);
+    background-size: contain;
+    display: inline-block;
+    position: relative;
+    top: 0.2rem;
+    left: -0.2rem;
+}
+
+div[data-name="connectionstatus"] {
+    width: 1rem;
+    height: 1rem;
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-image: url(../images/clock.png);
+    background-size: contain;
+    display: inline-block;
+    position: relative;
+    top: 0.2rem;
+    left: -0.2rem;
+}
+
+div[data-name="rpc"] {
+    width: 1rem;
+    height: 1rem;
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-image: url(../images/rpc.png);
+    background-size: contain;
+    display: inline-block;
+    position: relative;
+    top: 0.2rem;
+    left: -0.2rem;
+}
+
+div[data-name="p2p"] {
+    width: 1rem;
+    height: 1rem;
+    background-position: center center;
+    background-repeat: no-repeat;
+    background-image: url(../images/p2p.png);
+    background-size: contain;
+    display: inline-block;
+    position: relative;
+    top: 0.2rem;
+    left: -0.2rem;
+}
+
+table button {
+  background-color: #000000;
+  color: #FFFFFF;
+  outline: none;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 0.3rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
 /*
 =====================================
 BOTTOM FOOTER
@@ -52,6 +302,7 @@ BOTTOM FOOTER
     box-sizing: border-box;
     padding: 1rem 3rem;
     text-align: center;
+    z-index: 2;
 }
 
 #footer button {
@@ -89,12 +340,12 @@ GENERAL POPUP STYLE
     top: 0;
     left: 0;
     background-color: rgba(0,0,0,0.95);
-    z-index: 0;
+    z-index: 5;
 }
 
 .popup .content {
     position: absolute;
-    z-index: 1;
+    z-index: 6;
     background-color: #FFFFFF;
     border-radius: 0.8rem;
     top: 6rem;
@@ -103,8 +354,9 @@ GENERAL POPUP STYLE
     left: 50%;
     margin-left: -14.5rem;
     box-sizing: border-box;
-    padding: 2rem 1rem;
+    padding: 2rem 0.5rem;
     text-align: center;
+    margin-bottom: 10rem;
 }
 
 @media(max-width: 40em) {
@@ -254,9 +506,11 @@ GENERAL POPUP STYLE
   border-radius: 1rem;
   background-color: #1D2631;
 }
+
+
 /*
 =====================================
-POPUP: WELCOME
+POPUP: ADD NODE
 =====================================
 */
 .popup[data-name="addnode"] .content small {
@@ -269,4 +523,18 @@ POPUP: WELCOME
     min-width: 8rem;
     margin: 0.3rem 0.9rem;
     text-align: center;
+}
+
+
+/*
+=====================================
+POPUP: EDIT NODE
+=====================================
+*/
+.popup[data-name="editnode"] .content a[data-name="stopnode"],
+.popup[data-name="editnode"] .content a[data-name="startnode"] {
+    color: #000000;
+    font-size: 0.8rem;
+    display: block;
+    margin: 0 0 2rem 0;
 }
