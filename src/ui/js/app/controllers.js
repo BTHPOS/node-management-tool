@@ -43,86 +43,6 @@ angular.module('Application.Controllers', [])
       };
       $scope.configuration = configuration;
 
-      var poll_getpeerinfo = function() {
-            var requests = [];
-            for (var index in $scope.configuration.created_nodes) {
-                var node = $scope.configuration.created_nodes[index];
-                requests.push(post(
-                    "http://"+node.rpcusername+":"+node.rpcpassword+"@"+node.ipaddress+":"+node.rpcport,
-                    {"jsonrpc": "1.0","method": "getpeerinfo","params": [],"id": 1}
-                ))
-            }
-            for (var index in $scope.configuration.existing_nodes) {
-                var node = $scope.configuration.existing_nodes[index];
-                requests.push(post(
-                    "http://"+node.rpcusername+":"+node.rpcpassword+"@"+node.ipaddress+":"+node.rpcport,
-                    {"jsonrpc": "1.0","method": "getpeerinfo","params": [],"id": 1}
-                ))
-            }
-            Promise.raceAll( requests, 2000, null ).then(function() {
-                  let responses = arguments[0];
-                  for (var nodeIndex in responses) {
-                        var data = responses[nodeIndex];
-                        var nodetype = nodeIndex >= $scope.configuration.created_nodes.length ? "existing_nodes" : "created_nodes";
-                        (function( _data, _nodeIndex, _nodetype ) {
-                              $timeout(function() {
-                                  _nodeIndex = _nodetype == "existing_nodes" ? _nodeIndex-$scope.configuration.created_nodes.length : _nodeIndex;
-                                  if (_nodetype === "existing_nodes") {
-                                      if (_data) {
-                                          $scope.configuration[_nodetype][_nodeIndex].nodestats_isrunning = true;
-                                      }
-                                      else {
-                                          $scope.configuration[_nodetype][_nodeIndex].nodestats_isrunning = false;
-                                      }
-                                  }
-                                  $scope.configuration[_nodetype][_nodeIndex].nodestats_getpeerinfo = _data ? JSON.parse(_data.response).result: []
-                              })
-                        })( data, nodeIndex, nodetype );
-                  }
-                  setTimeout(poll_getpeerinfo, pollInterval)
-            });
-      };
-
-      var poll_getblockchaininfo = function() {
-            var requests = [];
-            for (var index in $scope.configuration.created_nodes) {
-                var node = $scope.configuration.created_nodes[index];
-                requests.push(post(
-                    "http://"+node.rpcusername+":"+node.rpcpassword+"@"+node.ipaddress+":"+node.rpcport,
-                    {"jsonrpc": "1.0","method": "getblockchaininfo","params": [],"id": 1}
-                ))
-            }
-            for (var index in $scope.configuration.existing_nodes) {
-                var node = $scope.configuration.existing_nodes[index];
-                requests.push(post(
-                    "http://"+node.rpcusername+":"+node.rpcpassword+"@"+node.ipaddress+":"+node.rpcport,
-                    {"jsonrpc": "1.0","method": "getblockchaininfo","params": [],"id": 1}
-                ))
-            }
-            Promise.raceAll( requests, 3000, null ).then(function() {
-                  let responses = arguments[0];
-                  for (var nodeIndex in responses) {
-                        var data = responses[nodeIndex];
-                        var nodetype = nodeIndex >= $scope.configuration.created_nodes.length ? "existing_nodes" : "created_nodes";
-                        (function( _data, _nodeIndex, _nodetype ) {
-                             $timeout(function() {
-                                  _nodeIndex = _nodetype == "existing_nodes" ? _nodeIndex-$scope.configuration.created_nodes.length : _nodeIndex;
-                                  if (_nodetype === "existing_nodes") {
-                                      if (_data) {
-                                          $scope.configuration[_nodetype][_nodeIndex].nodestats_isrunning = true;
-                                      }
-                                      else {
-                                          $scope.configuration[_nodetype][_nodeIndex].nodestats_isrunning = false;
-                                      }
-                                  }
-                                  $scope.configuration[_nodetype][_nodeIndex].nodestats_getblockchaininfo = _data ? JSON.parse(_data.response).result : {}
-                             })
-                        })( data, nodeIndex, nodetype );
-                  }
-                  setTimeout(poll_getblockchaininfo, pollInterval)
-            });
-      };
-
       var poll_getinfo = function() {
             var requests = [];
             for (var index in $scope.configuration.created_nodes) {
@@ -174,8 +94,6 @@ angular.module('Application.Controllers', [])
       };
 
       var poll = function() {
-          // poll_getpeerinfo();
-          // poll_getblockchaininfo();
           poll_getinfo();
           poll_running();
           poll_checks();

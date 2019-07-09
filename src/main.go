@@ -388,13 +388,19 @@ func directoryExists(dir string) bool {
 }
 
 func removeDirForNODEIfPossible(dir string) bool {
-
-    exec.Command(
-      "rm",
-      "-rf",
-      dir).CombinedOutput();
-
-    return directoryExists(dir);
+  
+    var path = dir + string(os.PathSeparator);
+    os.Remove(path + "db.log")
+    os.Remove(path + "debug.log")
+    os.Remove(path + "banlist.dat")
+    os.Remove(path + "peers.dat")
+    os.Remove(path + "wallet.dat")
+    os.Remove(path + "fee_estimates.dat")
+    os.Remove(path + "mempool.dat")
+    os.RemoveAll(path + "blocks")
+    os.RemoveAll(path + "chainstate")
+    var isDeleted = !directoryExists(path + "db.log") && !directoryExists(path + "debug.log") && !directoryExists(path + "banlist.dat") && !directoryExists(path + "peers.dat") && !directoryExists(path + "wallet.dat") && !directoryExists(path + "fee_estimates.dat") && !directoryExists(path + "mempool.dat") && !directoryExists(path + "blockst") && !directoryExists(path + "chainstate");
+    return isDeleted;
 }
 
 func initWindowEvents(window *gotron.BrowserWindow) {
@@ -415,11 +421,13 @@ func initWindowEvents(window *gotron.BrowserWindow) {
             var data map[string]interface{}
             json.Unmarshal(bin, &data)
             var datadir = data["datadir"].(string)
-            var dirExists = removeDirForNODEIfPossible(datadir);
-            window.Send(&DirectoryExistsEvent{
-              Event: &gotron.Event{Event: "remove-datadir"},
-              DIRECTORY: datadir,
-              EXISTS: dirExists})
+            var isDeleted = removeDirForNODEIfPossible(datadir);
+            if (isDeleted) {
+                window.Send(&DirectoryExistsEvent{
+                  Event: &gotron.Event{Event: "remove-datadir"},
+                  DIRECTORY: datadir,
+                  EXISTS: !isDeleted})
+            }
       })
 
       window.On(&gotron.Event{Event: "start-node"}, func(bin []byte) {
