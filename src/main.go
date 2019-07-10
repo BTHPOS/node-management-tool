@@ -142,19 +142,10 @@ func floatInSlice(a float64, list []float64) bool {
     return false
 }
 
-func isNODERunning(port float64) bool {
+func isNODERunning(rpcport float64, port float64) bool {
 
     if runtime.GOOS == "windows" {
-        out, err := exec.Command(
-          "tasklist").CombinedOutput();
-
-          if err != nil {
-              return false
-          } else {
-              output := string(out[:])
-              return strings.Contains(output, "-rpcport="+fmt.Sprintf("%f", port))
-          }
-
+        return isPortInUse(int(port))
     } else {
         out, err := exec.Command(
           "ps",
@@ -164,7 +155,7 @@ func isNODERunning(port float64) bool {
               return false
           } else {
               output := string(out[:])
-              return strings.Contains(output, "-rpcport="+fmt.Sprintf("%f", port))
+              return strings.Contains(output, "-rpcport="+fmt.Sprintf("%f", rpcport))
           }
     }
 }
@@ -182,13 +173,14 @@ func isPortInUse(port int) bool {
     // if there is an error with our execution
     // handle it here
     if err != nil {
-        return true
+        log.Println(err)
+        return false
     } else {
         // as the out variable defined above is of type []byte we need to convert
         // this to a string or else we will see garbage printed out in our console
         // this is how we convert it to a string
         output := string(out[:])
-        return strings.Contains(output, strconv.Itoa(port))
+        return strings.Contains(output, "TCP    127.0.0.1:"+strconv.Itoa(port))
     }
 }
 
@@ -340,17 +332,18 @@ func startNODE(rpcuser string, rpcpass string, rpcport float64, peerport float64
     // we can store the output of this in our out variable
     // and catch any errors in err
     if runtime.GOOS == "windows" {
+
+        log.Println("Run node for windows")
+        log.Println( prefixPath + "builds"+string(os.PathSeparator)+ospathname+string(os.PathSeparator)+"bin"+string(os.PathSeparator)+"bethd" + extension )
+
         out, err := exec.Command(
+          "powershell",
+          "start-process",
           prefixPath + "builds"+string(os.PathSeparator)+ospathname+string(os.PathSeparator)+"bin"+string(os.PathSeparator)+"bethd" + extension,
-          "-rpcuser="+rpcuser,
-          "-rpcpassword="+rpcpass,
-          "-rpcport="+fmt.Sprintf("%f", rpcport),
-          "-port="+fmt.Sprintf("%f", peerport),
-          "-datadir="+datadir,
-          "-dbcache=100",
-          "-maxmempool=10",
-          "-maxconnections=10",
-          "-prune=550").CombinedOutput();
+          "-ArgumentList",
+          "'-datadir="+datadir+" -rpcuser="+rpcuser+" -rpcpassword="+rpcpass+" -rpcport="+fmt.Sprintf("%f", rpcport)+" -port="+fmt.Sprintf("%f", peerport)+" -dbcache=100 -maxmempool=10 -maxconnections=10 -prune=550'",
+          "-WindowStyle",
+          "Hidden").CombinedOutput();
 
           if err != nil {
               log.Println(err)
@@ -360,6 +353,8 @@ func startNODE(rpcuser string, rpcpass string, rpcport float64, peerport float64
               log.Println(output)
               return true;
           }
+
+          return true;
 
     } else {
         out, err := exec.Command(
@@ -503,7 +498,8 @@ func initWindowEvents(window *gotron.BrowserWindow) {
           var data map[string]interface{}
           json.Unmarshal(bin, &data)
           var rpcport = data["rpcport"].(float64)
-          var isRunning = isNODERunning(rpcport);
+          var port = data["port"].(float64)
+          var isRunning = isNODERunning(rpcport, port);
           window.Send(&CheckNodeEvent{
             Event: &gotron.Event{Event: "check-node"},
             ALIVE: isRunning,

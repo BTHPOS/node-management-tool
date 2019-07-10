@@ -88,7 +88,7 @@ angular.module('Application.Controllers', [])
       var poll_running = function() {
             for (var index in $scope.configuration.created_nodes) {
               let node = $scope.configuration.created_nodes[index];
-              ws.send(JSON.stringify({"event": "check-node", "rpcport": node.rpcport}))
+              ws.send(JSON.stringify({"event": "check-node", "port": node.p2pport, "rpcport": node.rpcport}))
             }
             setTimeout(poll_running, pollRunningInterval);
       };
