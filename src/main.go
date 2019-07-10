@@ -3,6 +3,7 @@ package main
 import (
     "log"
     "os"
+    "runtime"
     "fmt"
     "os/exec"
     "time"
@@ -143,23 +144,28 @@ func floatInSlice(a float64, list []float64) bool {
 
 func isNODERunning(port float64) bool {
 
-    // here we perform the pwd command.
-    // we can store the output of this in our out variable
-    // and catch any errors in err
-    out, err := exec.Command(
-      "ps",
-      "aux").CombinedOutput();
+    if runtime.GOOS == "windows" {
+        out, err := exec.Command(
+          "tasklist").CombinedOutput();
 
-    // if there is an error with our execution
-    // handle it here
-    if err != nil {
-        return true
+          if err != nil {
+              return false
+          } else {
+              output := string(out[:])
+              return strings.Contains(output, "-rpcport="+fmt.Sprintf("%f", port))
+          }
+
     } else {
-        // as the out variable defined above is of type []byte we need to convert
-        // this to a string or else we will see garbage printed out in our console
-        // this is how we convert it to a string
-        output := string(out[:])
-        return strings.Contains(output, "-rpcport="+fmt.Sprintf("%f", port))
+        out, err := exec.Command(
+          "ps",
+          "aux").CombinedOutput();
+
+          if err != nil {
+              return false
+          } else {
+              output := string(out[:])
+              return strings.Contains(output, "-rpcport="+fmt.Sprintf("%f", port))
+          }
     }
 }
 
@@ -316,49 +322,91 @@ func download(url string, path string, window *gotron.BrowserWindow) {
 
 func startNODE(rpcuser string, rpcpass string, rpcport float64, peerport float64, datadir string) bool {
 
-    var prefixPath = APP_PATH + "/"
+    var prefixPath = ""
+    var extension = ""
+    var ospathname = ""
+
+    if runtime.GOOS == "windows" {
+        extension = ".exe"
+        ospathname = "windows32"
+    } else if runtime.GOOS == "darwin" {
+        prefixPath = APP_PATH + string(os.PathSeparator)
+        ospathname = "macos64"
+    } else {
+        ospathname = "linux64"
+    }
 
     // here we perform the pwd command.
     // we can store the output of this in our out variable
     // and catch any errors in err
-    out, err := exec.Command(
-      prefixPath + "builds/macos64/bin/bethd",
-      "-daemon",
-      "-rpcuser="+rpcuser,
-      "-rpcpassword="+rpcpass,
-      "-rpcport="+fmt.Sprintf("%f", rpcport),
-      "-port="+fmt.Sprintf("%f", peerport),
-      "-datadir="+datadir,
-      "-dbcache=100",
-      "-maxmempool=10",
-      "-maxconnections=10",
-      "-prune=550").CombinedOutput();
+    if runtime.GOOS == "windows" {
+        out, err := exec.Command(
+          prefixPath + "builds"+string(os.PathSeparator)+ospathname+string(os.PathSeparator)+"bin"+string(os.PathSeparator)+"bethd" + extension,
+          "-rpcuser="+rpcuser,
+          "-rpcpassword="+rpcpass,
+          "-rpcport="+fmt.Sprintf("%f", rpcport),
+          "-port="+fmt.Sprintf("%f", peerport),
+          "-datadir="+datadir,
+          "-dbcache=100",
+          "-maxmempool=10",
+          "-maxconnections=10",
+          "-prune=550").CombinedOutput();
 
-    // if there is an error with our execution
-    // handle it here
-    if err != nil {
-        // UNABLE TO START NODE
-        log.Println(err)
-        return false;
+          if err != nil {
+              log.Println(err)
+              return false;
+          } else {
+              output := string(out[:])
+              log.Println(output)
+              return true;
+          }
+
     } else {
-        // as the out variable defined above is of type []byte we need to convert
-        // this to a string or else we will see garbage printed out in our console
-        // this is how we convert it to a string
-        output := string(out[:])
-        log.Println(output)
-        return true;
+        out, err := exec.Command(
+          prefixPath + "builds"+string(os.PathSeparator)+ospathname+string(os.PathSeparator)+"bin"+string(os.PathSeparator)+"bethd" + extension,
+          "-daemon",
+          "-rpcuser="+rpcuser,
+          "-rpcpassword="+rpcpass,
+          "-rpcport="+fmt.Sprintf("%f", rpcport),
+          "-port="+fmt.Sprintf("%f", peerport),
+          "-datadir="+datadir,
+          "-dbcache=100",
+          "-maxmempool=10",
+          "-maxconnections=10",
+          "-prune=550").CombinedOutput();
+
+          if err != nil {
+              log.Println(err)
+              return false;
+          } else {
+              output := string(out[:])
+              log.Println(output)
+              return true;
+          }
     }
 }
 
 func stopNODE(rpcuser string, rpcpass string, rpcport float64, peerport float64) bool {
 
-    var prefixPath = APP_PATH + "/"
+  var prefixPath = ""
+  var extension = ""
+  var ospathname = ""
+
+  if runtime.GOOS == "windows" {
+      extension = ".exe"
+      ospathname = "windows32"
+  } else if runtime.GOOS == "darwin" {
+      prefixPath = APP_PATH + string(os.PathSeparator)
+      ospathname = "macos64"
+  } else {
+      ospathname = "linux64"
+  }
 
     // here we perform the pwd command.
     // we can store the output of this in our out variable
     // and catch any errors in err
     _, err := exec.Command(
-      prefixPath + "builds/macos64/bin/beth-cli",
+      prefixPath + "builds"+string(os.PathSeparator)+ospathname+string(os.PathSeparator)+"bin"+string(os.PathSeparator)+"beth-cli" + extension,
       "-rpcuser="+rpcuser,
       "-rpcpassword="+rpcpass,
       "-rpcport="+fmt.Sprintf("%f", rpcport),
@@ -388,7 +436,7 @@ func directoryExists(dir string) bool {
 }
 
 func removeDirForNODEIfPossible(dir string) bool {
-  
+
     var path = dir + string(os.PathSeparator);
     os.Remove(path + "db.log")
     os.Remove(path + "debug.log")
@@ -519,7 +567,9 @@ func initWindowEvents(window *gotron.BrowserWindow) {
 func run() {
 
     // Set APP PATH
-    APP_PATH = os.Args[1]
+    if runtime.GOOS != "windows" {
+        APP_PATH = os.Args[1]
+    }
 
     // Create a new browser window instance
     window, err := gotron.New("ui")
