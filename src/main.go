@@ -182,7 +182,7 @@ func isPortInUse(port int) bool {
         output := string(out[:])
         log.Println(output)
         if runtime.GOOS == "windows" {
-          return strings.Contains(output, "127.0.0.1:"+strconv.Itoa(port))
+          return strings.Contains(output, "0.0.0.0:"+strconv.Itoa(port))
         } else {
           return strings.Contains(output, "::1."+strconv.Itoa(port)) || strings.Contains(output, "*."+strconv.Itoa(port))
         }
