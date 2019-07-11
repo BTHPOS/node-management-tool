@@ -3,6 +3,7 @@ package main
 import (
     "log"
     "os"
+    "syscall"
     "runtime"
     "fmt"
     "os/exec"
@@ -21,17 +22,25 @@ import (
     "github.com/matishsiao/goInfo"
 )
 
+// Event that is used to store the json of
+// the configuration file
 type ConfigEvent struct {
     *gotron.Event
     CONFIG string `json:"config"`
 }
 
+
+// Event used to store the RPC and P2P available ports
+// that can be connected to by a new node
 type PortsEvent struct {
     *gotron.Event
     RPCPORT int `json:"rpcport"`
     PEERPORT int `json:"p2pport"`
 }
 
+
+// Event used to store system details
+// that will be used to determine certain constraints
 type SystemStateEvent struct {
     *gotron.Event
     OS string `json:"operatingsystem"`
@@ -39,6 +48,9 @@ type SystemStateEvent struct {
     MEMORY uint64 `json:"memory"`
 }
 
+
+// Event used to relay download progress of
+// a particular file being downloaded by the backend
 type DownloadProgressEvent struct {
     *gotron.Event
     BytesComplete int64 `json:"bytescomplete"`
@@ -46,93 +58,63 @@ type DownloadProgressEvent struct {
     Progress float64 `json:"progress"`
 }
 
+// Event used to relay download status of
+// a particular file being downlaoded by the backend
 type DownloadStatusEvent struct {
     *gotron.Event
     WasSuccess bool `json:"wassuccess"`
     WasError bool `json:"waserror"`
 }
 
+// Event used to relay node status details
+// such as uptime and RPC port to connect to
 type CheckNodeEvent struct {
     *gotron.Event
     ALIVE bool `json:"alive"`
     RPCPORT float64 `json:"rpcport"`
 }
 
-type AddressEvent struct {
-    *gotron.Event
-    Address string `json:"address"`
-    WIF string `json:"wif"`
-}
 
+// Event used to relay whether a particular
+// directory or group of files within the directory still exists.
+// In this case, the directory is likely the datadir.
 type DirectoryExistsEvent struct {
     *gotron.Event
     DIRECTORY string `json:"directory"`
     EXISTS bool `json:"exists"`
 }
 
+// Used to represent a crypto address
+// that can be saved to a file.
 type Address struct {
     ADDRESS string `json:"address"`
 }
 
+// Used to represent a crypto WIF
+// that can be saved to a file.
 type Wif struct {
     WIF string `json:"wif"`
 }
 
+
+// Name of configuration file
 const CONFIG_NAME = "config"
+
+// Name of folder that contains configuration
 const CONFIG_FOLDER_NAME = "bithereum-node-tool"
+
+// Default P2P Port
 const AVAILABLE_P2P_PORT_START = 18553
+
+// Default RPC Port
 const AVAILABLE_RPC_PORT_START = 18554
-const AVAILABLE_PORT_TIMEOUT = 2000
+
+// Path to the executable of this file
 var APP_PATH = ""
 
-func setInterval(someFunc func(), milliseconds int, async bool) chan bool {
 
-    // How often to fire the passed in function
-    // in milliseconds
-    interval := time.Duration(milliseconds) * time.Millisecond
-
-    // Setup the ticket and the channel to signal
-    // the ending of the interval
-    ticker := time.NewTicker(interval)
-    clear := make(chan bool)
-
-    // Put the selection in a go routine
-    // so that the for loop is none blocking
-    go func() {
-        for {
-
-            select {
-            case <-ticker.C:
-                if async {
-                    // This won't block
-                    go someFunc()
-                } else {
-                    // This will block
-                    someFunc()
-                }
-            case <-clear:
-                ticker.Stop()
-                return
-            }
-
-        }
-    }()
-
-    // We return the channel so we can pass in
-    // a value to it to clear the interval
-    return clear
-
-}
-
-func setTimeout(someFunc func(), milliseconds int) {
-
-    timeout := time.Duration(milliseconds) * time.Millisecond
-
-    // This spawns a goroutine and therefore does not block
-    time.AfterFunc(timeout, someFunc)
-
-}
-
+// Helper function that looks for a float value
+// in an array of floats
 func floatInSlice(a float64, list []float64) bool {
     for _, b := range list {
         if b == a {
@@ -142,60 +124,49 @@ func floatInSlice(a float64, list []float64) bool {
     return false
 }
 
+// Checks if a full node is running by either observing ports
+// that RPC/P2P are using or looking as running tasks depending
+// on the operating system that this script is running on.
 func isNODERunning(rpcport float64, port float64) bool {
 
-    if runtime.GOOS == "windows" {
-        return isPortInUse(int(port))
-    } else {
-        out, err := exec.Command(
-          "ps",
-          "aux").CombinedOutput();
+    out, err := exec.Command(
+      "ps",
+      "aux").CombinedOutput();
 
-          if err != nil {
-              return false
-          } else {
-              output := string(out[:])
-              return strings.Contains(output, "-rpcport="+fmt.Sprintf("%f", rpcport))
-          }
-    }
+      if err != nil {
+          return false
+      } else {
+          output := string(out[:])
+          return strings.Contains(output, "-rpcport="+fmt.Sprintf("%f", rpcport))
+      }
 }
 
+// Checks to see if this system is listning for incoming tcp
+// connections on a specified port.
 func isPortInUse(port int) bool {
 
-    // here we perform the pwd command.
-    // we can store the output of this in our out variable
-    // and catch any errors in err
     out, err := exec.Command(
       "netstat",
       "-anp",
       "tcp").CombinedOutput();
 
-    // if there is an error with our execution
-    // handle it here
     if err != nil {
-        log.Println(err)
         return false
     } else {
-        // as the out variable defined above is of type []byte we need to convert
-        // this to a string or else we will see garbage printed out in our console
-        // this is how we convert it to a string
         output := string(out[:])
-        log.Println(output)
-        if runtime.GOOS == "windows" {
-          return strings.Contains(output, "0.0.0.0:"+strconv.Itoa(port))
-        } else {
-          return strings.Contains(output, "::1."+strconv.Itoa(port)) || strings.Contains(output, "*."+strconv.Itoa(port))
-        }
+        return strings.Contains(output, "::1."+strconv.Itoa(port)) || strings.Contains(output, "*."+strconv.Itoa(port))
     }
 }
 
-func checkPortForAvilableFrom(port int, ports []float64) int {
+// Checks for an available port number starting at the port
+// number specified and excluding the ports in the excluded ports list.
+func checkPortForAvilableFrom(port int, excludeports []float64) int {
    var availablePort = 0
    var _port = port
 
    for {
       if availablePort == 0 {
-          if !isPortInUse(_port) && !floatInSlice(float64(_port), ports) {
+          if !isPortInUse(_port) && !floatInSlice(float64(_port), excludeports) {
             availablePort = _port;
           } else if _port >= 65000 {
               break;
@@ -210,6 +181,7 @@ func checkPortForAvilableFrom(port int, ports []float64) int {
    return availablePort
 }
 
+// Persists configuration file to disk
 func saveConfigurations(text string) {
     // Get home directory
     var homeDir, homeErr = homedir.Dir()
@@ -227,8 +199,9 @@ func saveConfigurations(text string) {
     ioutil.WriteFile(configPath, []byte(text), 0644)
 }
 
+// Retrieves configuration from confif file on disk
 func readConfigurations() string {
-  // Get home directory
+
   var homeDir, homeErr = homedir.Dir()
   if homeErr != nil {
     panic(homeErr)
@@ -242,6 +215,7 @@ func readConfigurations() string {
   return ""
 }
 
+// Saves address and wif to disk
 func saveKeys(address Address, wif Wif, path string) bool {
 
   // Set our configuration to the keystore
@@ -265,6 +239,7 @@ func saveKeys(address Address, wif Wif, path string) bool {
   return true
 }
 
+// Downloads the contents of a URL to a specified path
 func download(url string, path string, window *gotron.BrowserWindow) {
 
     // Check to see if path exists before proceeding
@@ -317,94 +292,50 @@ func download(url string, path string, window *gotron.BrowserWindow) {
     }
 }
 
+// Starts a full node
 func startNODE(rpcuser string, rpcpass string, rpcport float64, peerport float64, datadir string) bool {
 
     var prefixPath = ""
     var extension = ""
     var ospathname = ""
 
-    if runtime.GOOS == "windows" {
-        extension = ".exe"
-        ospathname = "windows32"
-    } else if runtime.GOOS == "darwin" {
-        prefixPath = APP_PATH + string(os.PathSeparator)
-        ospathname = "macos64"
-    } else {
-        ospathname = "linux64"
-    }
+    // MacOS values
+    prefixPath = APP_PATH + string(os.PathSeparator)
+    ospathname = "macos64"
 
-    // here we perform the pwd command.
-    // we can store the output of this in our out variable
-    // and catch any errors in err
-    if runtime.GOOS == "windows" {
 
-        log.Println("Run node for windows")
-        log.Println( prefixPath + "builds"+string(os.PathSeparator)+ospathname+string(os.PathSeparator)+"bin"+string(os.PathSeparator)+"bethd" + extension )
+    out, err := exec.Command(
+      prefixPath + "builds"+string(os.PathSeparator)+ospathname+string(os.PathSeparator)+"bin"+string(os.PathSeparator)+"bethd" + extension,
+      "-daemon",
+      "-rpcuser="+rpcuser,
+      "-rpcpassword="+rpcpass,
+      "-rpcport="+fmt.Sprintf("%f", rpcport),
+      "-port="+fmt.Sprintf("%f", peerport),
+      "-datadir="+datadir,
+      "-dbcache=100",
+      "-maxmempool=10",
+      "-maxconnections=10",
+      "-prune=550").CombinedOutput();
 
-        out, err := exec.Command(
-          "powershell",
-          "start-process",
-          prefixPath + "builds"+string(os.PathSeparator)+ospathname+string(os.PathSeparator)+"bin"+string(os.PathSeparator)+"bethd" + extension,
-          "-ArgumentList",
-          "'-datadir="+datadir+" -rpcuser="+rpcuser+" -rpcpassword="+rpcpass+" -rpcport="+fmt.Sprintf("%f", rpcport)+" -port="+fmt.Sprintf("%f", peerport)+" -rpcallowip=0.0.0.0/0 -dbcache=100 -maxmempool=10 -maxconnections=10 -prune=550'",
-          "-WindowStyle",
-          "Hidden").CombinedOutput();
-
-          if err != nil {
-              log.Println(err)
-              return false;
-          } else {
-              output := string(out[:])
-              log.Println(output)
-              return true;
-          }
-
+      if err != nil {
+          return false;
+      } else {
+          output := string(out[:])
           return true;
-
-    } else {
-        out, err := exec.Command(
-          prefixPath + "builds"+string(os.PathSeparator)+ospathname+string(os.PathSeparator)+"bin"+string(os.PathSeparator)+"bethd" + extension,
-          "-daemon",
-          "-rpcuser="+rpcuser,
-          "-rpcpassword="+rpcpass,
-          "-rpcport="+fmt.Sprintf("%f", rpcport),
-          "-port="+fmt.Sprintf("%f", peerport),
-          "-datadir="+datadir,
-          "-dbcache=100",
-          "-maxmempool=10",
-          "-maxconnections=10",
-          "-prune=550").CombinedOutput();
-
-          if err != nil {
-              log.Println(err)
-              return false;
-          } else {
-              output := string(out[:])
-              log.Println(output)
-              return true;
-          }
-    }
+      }
 }
 
+// Stops a full node
 func stopNODE(rpcuser string, rpcpass string, rpcport float64, peerport float64) bool {
 
-  var prefixPath = ""
-  var extension = ""
-  var ospathname = ""
+   var prefixPath = ""
+   var extension = ""
+   var ospathname = ""
 
-  if runtime.GOOS == "windows" {
-      extension = ".exe"
-      ospathname = "windows32"
-  } else if runtime.GOOS == "darwin" {
-      prefixPath = APP_PATH + string(os.PathSeparator)
-      ospathname = "macos64"
-  } else {
-      ospathname = "linux64"
-  }
+   // MacOS values
+   prefixPath = APP_PATH + string(os.PathSeparator)
+   ospathname = "macos64"
 
-    // here we perform the pwd command.
-    // we can store the output of this in our out variable
-    // and catch any errors in err
     _, err := exec.Command(
       prefixPath + "builds"+string(os.PathSeparator)+ospathname+string(os.PathSeparator)+"bin"+string(os.PathSeparator)+"beth-cli" + extension,
       "-rpcuser="+rpcuser,
@@ -412,22 +343,16 @@ func stopNODE(rpcuser string, rpcpass string, rpcport float64, peerport float64)
       "-rpcport="+fmt.Sprintf("%f", rpcport),
       "-port="+fmt.Sprintf("%f", peerport),
       "stop").CombinedOutput();
-    // if there is an error with our execution
-    // handle it here
+
     if err != nil {
-          // UNABLE TO STOP NODE
           return false;
     } else {
-        // as the out variable defined above is of type []byte we need to convert
-        // this to a string or else we will see garbage printed out in our console
-        // this is how we convert it to a string
-        // output := string(out[:])
-        // log.Println(output)
         return true;
     }
 }
 
-func directoryExists(dir string) bool {
+// Checks if a given file/directory exists
+func fileExists(dir string) bool {
     if _, err := os.Stat(dir); os.IsNotExist(err) {
         return false;
     } else {
@@ -435,9 +360,10 @@ func directoryExists(dir string) bool {
     }
 }
 
-func removeDirForNODEIfPossible(dir string) bool {
+// Removes node files within a specified datadir
+func removeFilesForNODEIfPossible(datadir string) bool {
 
-    var path = dir + string(os.PathSeparator);
+    var path = datadir + string(os.PathSeparator);
     os.Remove(path + "db.log")
     os.Remove(path + "debug.log")
     os.Remove(path + "banlist.dat")
@@ -447,12 +373,14 @@ func removeDirForNODEIfPossible(dir string) bool {
     os.Remove(path + "mempool.dat")
     os.RemoveAll(path + "blocks")
     os.RemoveAll(path + "chainstate")
-    var isDeleted = !directoryExists(path + "db.log") && !directoryExists(path + "debug.log") && !directoryExists(path + "banlist.dat") && !directoryExists(path + "peers.dat") && !directoryExists(path + "wallet.dat") && !directoryExists(path + "fee_estimates.dat") && !directoryExists(path + "mempool.dat") && !directoryExists(path + "blockst") && !directoryExists(path + "chainstate");
+    var isDeleted = !fileExists(path + "db.log") && !fileExists(path + "debug.log") && !fileExists(path + "banlist.dat") && !fileExists(path + "peers.dat") && !fileExists(path + "wallet.dat") && !fileExists(path + "fee_estimates.dat") && !fileExists(path + "mempool.dat") && !fileExists(path + "blockst") && !fileExists(path + "chainstate");
     return isDeleted;
 }
 
+// Initializes all backend events
 func initWindowEvents(window *gotron.BrowserWindow) {
 
+      // Provides general system state details such as RAM and OS
       window.On(&gotron.Event{Event: "system-state"}, func(bin []byte) {
             var data map[string]interface{}
             json.Unmarshal(bin, &data)
@@ -465,11 +393,13 @@ func initWindowEvents(window *gotron.BrowserWindow) {
               MEMORY: memory})
       })
 
+
+      // Carries out the removal of a data directory
       window.On(&gotron.Event{Event: "remove-datadir"}, func(bin []byte) {
             var data map[string]interface{}
             json.Unmarshal(bin, &data)
             var datadir = data["datadir"].(string)
-            var isDeleted = removeDirForNODEIfPossible(datadir);
+            var isDeleted = removeFilesForNODEIfPossible(datadir);
             if (isDeleted) {
                 window.Send(&DirectoryExistsEvent{
                   Event: &gotron.Event{Event: "remove-datadir"},
@@ -478,6 +408,7 @@ func initWindowEvents(window *gotron.BrowserWindow) {
             }
       })
 
+      // Starts a full node
       window.On(&gotron.Event{Event: "start-node"}, func(bin []byte) {
           var data map[string]interface{}
           json.Unmarshal(bin, &data)
@@ -489,6 +420,7 @@ func initWindowEvents(window *gotron.BrowserWindow) {
           startNODE(rpcuser, rpcpass, rpcport, port, datadir);
       })
 
+      // Stops a full node
       window.On(&gotron.Event{Event: "stop-node"}, func(bin []byte) {
           var data map[string]interface{}
           json.Unmarshal(bin, &data)
@@ -499,6 +431,7 @@ func initWindowEvents(window *gotron.BrowserWindow) {
           stopNODE(rpcuser, rpcpass, rpcport, port);
       })
 
+      // Checks to see if a full node is running
       window.On(&gotron.Event{Event: "check-node"}, func(bin []byte) {
           var data map[string]interface{}
           json.Unmarshal(bin, &data)
@@ -511,12 +444,14 @@ func initWindowEvents(window *gotron.BrowserWindow) {
             RPCPORT: rpcport})
       })
 
+      // Persists configuration details to disk
       window.On(&gotron.Event{Event: "save-configuration"}, func(bin []byte) {
           var data map[string]interface{}
           json.Unmarshal(bin, &data)
           saveConfigurations(data["configuration"].(string))
       })
 
+      // Retrieves configuration details from disk
       window.On(&gotron.Event{Event: "fetch-configuration"}, func(bin []byte) {
             var configuration = readConfigurations()
             window.Send(&ConfigEvent{
@@ -524,14 +459,7 @@ func initWindowEvents(window *gotron.BrowserWindow) {
               CONFIG: configuration})
       })
 
-      window.On(&gotron.Event{Event: "generate-bth-address"}, func(bin []byte) {
-           var priv, _ = btckey.GenerateKey(rand.Reader)
-           window.Send(&AddressEvent{
-              Event: &gotron.Event{Event: "generate-bth-address"},
-              Address: priv.ToAddress(),
-              WIF: priv.ToWIF()})
-      })
-
+      // Persists address and wif to a file on disk
       window.On(&gotron.Event{Event: "save-keys"}, func(bin []byte) {
            var data map[string]interface{}
            json.Unmarshal(bin, &data)
@@ -545,6 +473,7 @@ func initWindowEvents(window *gotron.BrowserWindow) {
            saveKeys(address, wif, data["path"].(string))
       })
 
+      // Retrieves an available RPC and P2P port
       window.On(&gotron.Event{Event: "fetch-ports"}, func(bin []byte) {
            var data map[string]interface{}
            json.Unmarshal(bin, &data)
@@ -568,10 +497,8 @@ func initWindowEvents(window *gotron.BrowserWindow) {
 func run() {
 
     // Set APP PATH
-    if runtime.GOOS == "darwin" {
-        APP_PATH = os.Args[1]
-    }
-
+    APP_PATH = os.Args[1]
+    
     // Create a new browser window instance
     window, err := gotron.New("ui")
     if err != nil {
