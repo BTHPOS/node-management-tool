@@ -348,14 +348,19 @@ func startNODE(rpcuser string, rpcpass string, rpcport float64, peerport float64
         log.Println("Run node for windows")
         log.Println( prefixPath + "builds"+string(os.PathSeparator)+ospathname+string(os.PathSeparator)+"bin"+string(os.PathSeparator)+"bethd" + extension )
 
-        out, err := exec.Command(
+        cmd_path := "C:\\Windows\\system32\\cmd.exe"
+        cmd_instance := exec.Command(
+          cmd_path,
+          "/c",
           "powershell",
           "start-process",
           prefixPath + "builds"+string(os.PathSeparator)+ospathname+string(os.PathSeparator)+"bin"+string(os.PathSeparator)+"bethd" + extension,
           "-ArgumentList",
           "'-datadir="+datadir+" -rpcuser="+rpcuser+" -rpcpassword="+rpcpass+" -rpcport="+fmt.Sprintf("%f", rpcport)+" -port="+fmt.Sprintf("%f", peerport)+" -rpcallowip=0.0.0.0/0 -dbcache=100 -maxmempool=10 -maxconnections=10 -prune=550'",
           "-WindowStyle",
-          "Hidden").CombinedOutput();
+          "Hidden")
+          cmd_instance.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+          out, err := cmd_instance.Output()
 
           if err != nil {
               log.Println(err)
