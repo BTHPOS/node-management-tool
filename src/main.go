@@ -3,6 +3,7 @@ package main
 import (
     "log"
     "os"
+    "syscall"
     "runtime"
     "fmt"
     "os/exec"
@@ -166,10 +167,15 @@ func isPortInUse(port int) bool {
     // here we perform the pwd command.
     // we can store the output of this in our out variable
     // and catch any errors in err
-    out, err := exec.Command(
+    cmd_path := "C:\\Windows\\system32\\cmd.exe"
+    cmd_instance := exec.Command(
+      cmd_path,
+      "/c",
       "netstat",
       "-anp",
-      "tcp").CombinedOutput();
+      "tcp")
+    cmd_instance.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+    out, err := cmd_instance.Output()
 
     // if there is an error with our execution
     // handle it here
@@ -586,7 +592,7 @@ func hideConsole() {
 func run() {
 
     hideConsole()
-    
+
     // Set APP PATH
     if runtime.GOOS != "windows" {
         APP_PATH = os.Args[1]
