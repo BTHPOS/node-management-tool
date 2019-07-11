@@ -299,7 +299,7 @@ func startNODE(rpcuser string, rpcpass string, rpcport float64, peerport float64
     ospathname = "macos64"
 
 
-    out, err := exec.Command(
+    _, err := exec.Command(
       prefixPath + "builds"+string(os.PathSeparator)+ospathname+string(os.PathSeparator)+"bin"+string(os.PathSeparator)+"bethd" + extension,
       "-daemon",
       "-rpcuser="+rpcuser,
