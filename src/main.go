@@ -490,6 +490,9 @@ func initWindowEvents(window *gotron.BrowserWindow) {
 
 func run() {
 
+    // Set APP PATH
+    APP_PATH = os.Args[1]
+
     // Create a new browser window instance
     window, err := gotron.New("ui")
     if err != nil {
