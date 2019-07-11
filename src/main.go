@@ -568,7 +568,7 @@ func initWindowEvents(window *gotron.BrowserWindow) {
 func run() {
 
     // Set APP PATH
-    if runtime.GOOS != "windows" {
+    if runtime.GOOS == "darwin" {
         APP_PATH = os.Args[1]
     }
 
