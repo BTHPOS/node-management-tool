@@ -19,6 +19,7 @@ import (
     "io/ioutil"
     "github.com/pbnjay/memory"
     "github.com/matishsiao/goInfo"
+    "github.com/gonutz/ide/w32"
 )
 
 type ConfigEvent struct {
