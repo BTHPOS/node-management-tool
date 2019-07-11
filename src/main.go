@@ -294,9 +294,8 @@ func startNODE(rpcuser string, rpcpass string, rpcport float64, peerport float64
     var extension = ""
     var ospathname = ""
 
-    // MacOS values
-    prefixPath = APP_PATH + string(os.PathSeparator)
-    ospathname = "macos64"
+    // Linux values
+    ospathname = "linux64"
 
 
     _, err := exec.Command(
@@ -326,9 +325,8 @@ func stopNODE(rpcuser string, rpcpass string, rpcport float64, peerport float64)
    var extension = ""
    var ospathname = ""
 
-   // MacOS values
-   prefixPath = APP_PATH + string(os.PathSeparator)
-   ospathname = "macos64"
+   // Linux values
+   ospathname = "linux64"
 
     _, err := exec.Command(
       prefixPath + "builds"+string(os.PathSeparator)+ospathname+string(os.PathSeparator)+"bin"+string(os.PathSeparator)+"beth-cli" + extension,
