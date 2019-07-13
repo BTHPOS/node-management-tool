@@ -2,48 +2,51 @@ angular.module('Application.Controllers', [])
 
 .controller("BNTController", ["$scope", "$timeout", "$rootScope", "$websocket", function($scope, $timeout, $rootScope, $websocket) {
 
+      // Helper function used to clone object
+      var clone = function(object) {
+            return JSON.parse(JSON.stringify(object))
+      };
 
+      // Helper function used to manage promises
       Promise.delay = function(t, val) {
           return new Promise(resolve => {
               setTimeout(resolve.bind(null, val), t);
           });
       }
 
+      // Helper function used to mange promises
       Promise.raceAll = function(promises, timeoutTime, timeoutVal) {
           return Promise.all(promises.map(p => {
               return Promise.race([p, Promise.delay(timeoutTime, timeoutVal)])
           }));
       }
 
-      var pollInterval = 3000;
-      var pollRunningInterval = 5000;
+      // General settings and configurations
+      var Settings = {};
+      Settings.pollInterval = 3000;
+      Settings.pollRunningInterval = 5000;
+      Settings.nodecreatedlimit = 1;
+      Settings.hideIndicatorTimeout = 1000;
+      Settings.defaultConfiguration = {};
+      Settings.defaultConfiguration.created_nodes = [];
+      Settings.defaultConfiguration.existing_nodes = [];
+      Settings.defaultConfiguration.removed_nodes = [];
+      Settings.defaultConfiguration.cache = {welcomeseen: false};
+      Settings.nodeReportURL = "http://node.bithereum.network/report"
+      Settings.nodeReportInterval = 5000;
 
-      $scope.nodecreatedlimit = 1;
+      // General $scope variable initializations
       $scope.systemstate = {};
-
       $scope.isWaitingIndicatorVisible = false;
-      var showWaitingIndicator = function() {
-          $timeout(function() {
-              $scope.isWaitingIndicatorVisible = true;
-          });
-      };
-      var hideWaitingIndicator = function() {
-          $timeout(function() {
-              $scope.isWaitingIndicatorVisible = false;
-          }, 1000);
-      };
+      $scope.nodecreatedlimit = clone(Settings).nodecreatedlimit;
+      $scope.configuration = clone(Settings).defaultConfiguration
 
-      var configuration = {
-          created_nodes: [],
-          existing_nodes: [],
-          removed_nodes: [],
-          cache: {
-              welcomeseen: false
-          }
-      };
-      $scope.configuration = configuration;
 
-      var poll_getinfo = function() {
+      // Tasked with frequently checking node status and retrieving node details
+      var Requester = {};
+
+      // Retrieves node information using RPC getinfo
+      Requester.getinfo = function() {
             var requests = [];
             for (var index in $scope.configuration.created_nodes) {
                 var node = $scope.configuration.created_nodes[index];
@@ -81,61 +84,85 @@ angular.module('Application.Controllers', [])
                               })
                         })( data, nodeIndex, nodetype );
                   }
-                  setTimeout(poll_getinfo, pollInterval)
+                  setTimeout(Requester.getinfo, Settings.pollInterval)
             });
       };
 
-      var poll_running = function() {
+      // Makes a request to get node running status to the backend
+      Requester.check_running = function() {
             for (var index in $scope.configuration.created_nodes) {
               let node = $scope.configuration.created_nodes[index];
               ws.send(JSON.stringify({"event": "check-node", "port": node.p2pport, "rpcport": node.rpcport}))
             }
-            setTimeout(poll_running, pollRunningInterval);
+            setTimeout(Requester.check_running, Settings.pollRunningInterval);
       };
 
-      var poll = function() {
-          poll_getinfo();
-          poll_running();
-          poll_checks();
-      };
-
-      var poll_checks = function() {
+      // Checks that need to happen periodically should be placed in here
+      Requester.periodic_checks = function() {
           if ($scope.configuration.removed_nodes.length > 0) {
               var removed_nodes = $scope.configuration.removed_nodes;
               for (var index in removed_nodes) {
                   ws.send(JSON.stringify({"event": "remove-datadir", "datadir": removed_nodes[index].datadir}))
               }
           }
-          setTimeout(poll_checks, pollInterval)
+          setTimeout(Requester.periodic_checks, Settings.pollInterval)
       };
 
-      var checkNODE = function(rpcuser, rpcpass, rpcport, port) {
+      // Gets node alive status
+      Requester.checkNODE = function(rpcuser, rpcpass, rpcport, port) {
           ws.send(JSON.stringify({"event": "check-node", "rpcuser": rpcuser, "rpcpass": rpcpass, "rpcport": rpcport, "port": port}))
       };
 
-      var startNODE = function(rpcuser, rpcpass, rpcport, port, datadir) {
+      // Starts a given node
+      Requester.startNODE = function(rpcuser, rpcpass, rpcport, port, datadir) {
           ws.send(JSON.stringify({"event": "start-node", "rpcuser": rpcuser, "rpcpass": rpcpass, "rpcport": rpcport, "port": port, "datadir": datadir}))
       };
 
-      var stopNODE = function(rpcuser, rpcpass, rpcport, port) {
+      // Stops a given node
+      Requester.stopNODE = function(rpcuser, rpcpass, rpcport, port) {
            ws.send(JSON.stringify({"event": "stop-node", "rpcuser": rpcuser, "rpcpass": rpcpass, "rpcport": rpcport,  "port": port}))
       };
 
-      var saveConfiguration = function() {
+      // Saves current configuration to disk
+      Requester.saveConfiguration = function() {
             var config = angular.toJson($scope.configuration);
             ws.send(JSON.stringify({"event": "save-configuration", "configuration": config}))
       };
 
-      var fetchConfiguration = function() {
-          showWaitingIndicator();
+      // Retrieves configuration from the backend
+      Requester.fetchConfiguration = function() {
+          Helpers.showWaitingIndicator();
           ws.send(JSON.stringify({"event": "fetch-configuration"}))
       };
 
-      var fetchSystemState = function() {
+      //  Retrieves system information such as RAM , disk space, etc.
+      Requester.fetchSystemState = function() {
           ws.send(JSON.stringify({"event": "system-state"}))
       };
 
-      var findRemovedNodeIndexByDatadir = function(datadir) {
+      // Reports node data to Bithereum
+      Requester.reportNodes = function() {
+          var configuration = JSON.parse(angular.toJson($scope.configuration));
+          configuration.created_nodes.map(function(node) {
+              delete node.rpcusername;
+              delete node.rpcpassword;
+              return node;
+          });
+          configuration.existing_nodes.map(function(node) {
+              delete node.rpcusername;
+              delete node.rpcpassword;
+              return node;
+          });
+          delete configuration.cache;
+          delete configuration.removed_nodes;
+          post(Settings.nodeReportURL, configuration)
+      };
+
+      // General helper functions
+      var Helpers = {};
+
+      // Finds
+      Helpers.findRemovedNodeIndexByDatadir = function(datadir) {
             var created = $scope.configuration.created_nodes;
             var existing = $scope.configuration.existing_nodes;
             for (var index in created) {
@@ -151,7 +178,7 @@ angular.module('Application.Controllers', [])
             return -1;
       };
 
-      var findNodeByRPC = function(rpcport) {
+      Helpers.findNodeByRPC = function(rpcport) {
             var created = $scope.configuration.created_nodes;
             var existing = $scope.configuration.existing_nodes;
             for (var index in created) {
@@ -167,7 +194,7 @@ angular.module('Application.Controllers', [])
             return false;
       };
 
-      var fetchPorts = function() {
+      Helpers.fetchPorts = function() {
           var used_rpcports = $scope.configuration.created_nodes.map(function(node) {
               return node.rpcport;
           });
@@ -178,77 +205,85 @@ angular.module('Application.Controllers', [])
           ws.send(JSON.stringify({"event": "fetch-ports", "usedports": usedports}))
       };
 
-      var handleInitState = function() {
-
-          // Welcome screen
-          if (!$scope.configuration.cache.welcomeseen) {
-              popup.welcome.isVisible = true;
-              $scope.configuration.cache.welcomeseen = true;
-              saveConfiguration();
-          }
-
-          // for (var index in $scope.configuration.created_nodes) {
-          //       var node = $scope.configuration.created_nodes[index];
-          //       ws.send(JSON.stringify({
-          //             "event": "start-node",
-          //             "rpcuser": node.rpcusername,
-          //             "rpcpass": node.rpcpassword,
-          //             "rpcport": node.rpcport,
-          //             "port": node.p2pport,
-          //             "datadir": node.datadir,
-          //       }))
-          // }
+      Helpers.scrollTop = function() {
+          window.scrollTo(0, 0);
       };
 
-      var validator = {};
-      validator.isValidIPADDRESS = function(value) {
+      // Displays waiting indicator
+      Helpers.showWaitingIndicator = function() {
+          $timeout(function() {
+              $scope.isWaitingIndicatorVisible = true;
+          });
+      };
+
+      // Hides waiting indicator
+      Helpers.hideWaitingIndicator = function() {
+          $timeout(function() {
+              $scope.isWaitingIndicatorVisible = false;
+          }, Settings.hideIndicatorTimeout);
+      };
+
+      // Contains validation functions
+      Helpers.validator = {};
+
+      // Validate IP address
+      Helpers.validator.isValidIPADDRESS = function(value) {
           var ipformat = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
           return (value && value.match(ipformat))
       };
-      validator.isValidRPCPORT = function(value) {
+
+      // Validate RPC port
+      Helpers.validator.isValidRPCPORT = function(value) {
           return value && !isNaN(parseInt(value));
       };
-      validator.isValidP2PPORT = function(value) {
+
+      // Validate P2P port
+      Helpers.validator.isValidP2PPORT = function(value) {
           return value && !isNaN(parseInt(value));
       };
-      validator.isValidRPCUSERNAME = function(value) {
+
+      // Validate RPC username
+      Helpers.validator.isValidRPCUSERNAME = function(value) {
           return value && value.length > 0;
       };
-      validator.isValidRPCPASSWORD = function(value) {
+
+      // Validate RPC password
+      Helpers.validator.isValidRPCPASSWORD = function(value) {
           return value && value.length > 0;
       };
-      validator.isValidBTHADDRESS = function(value) {
-        try {
-             let decoded = bitcoin.address.fromBase58Check(value);
-             return decoded["version"] == 25;
-        } catch(e) {}
-        return false;
+
+      // Validate BTH address
+      Helpers.validator.isValidBTHADDRESS = function(value) {
+            if (!value) return true;
+            try {
+                 let decoded = bitcoin.address.fromBase58Check(value);
+                 return decoded["version"] == 25;
+            } catch(e) {}
+            return false;
       };
-      validator.isValidExistingNode = function(fields) {
+
+      // Validate existing nodes
+      Helpers.validator.isValidExistingNode = function(fields) {
           return (
-              validator.isValidIPADDRESS(fields.ipaddress) &&
-              validator.isValidBTHADDRESS(fields.address) &&
-              validator.isValidRPCPORT(fields.rpcport) &&
-              validator.isValidP2PPORT(fields.p2pport) &&
-              validator.isValidRPCUSERNAME(fields.rpcusername) &&
-              validator.isValidRPCPASSWORD(fields.rpcpassword)
+              this.isValidIPADDRESS(fields.ipaddress) &&
+              this.isValidBTHADDRESS(fields.address) &&
+              this.isValidRPCPORT(fields.rpcport) &&
+              this.isValidP2PPORT(fields.p2pport) &&
+              this.isValidRPCUSERNAME(fields.rpcusername) &&
+              this.isValidRPCPASSWORD(fields.rpcpassword)
           )
       };
-      $scope.validator = validator;
+
+      // Expose validator to $scope
+      $scope.validator = Helpers.validator;
 
       // Estbalish backend connection
       let ws = $websocket("ws://localhost:" + global.backendPort + "/web/app/events");
 
-      var scrollTop = function() {
-          window.scrollTo(0, 0);
-      };
-
       // Popups
       var popup = {};
 
-      //////////////////////
-      // Popup: Welcoming //
-      //////////////////////
+      // Popup: Welcoming
       popup.welcome = {};
       popup.welcome.isVisible = false;
       popup.welcome.continue = function() {
@@ -261,9 +296,7 @@ angular.module('Application.Controllers', [])
         this.isVisible = true;
       };
 
-      ///////////////////////////////////////
-      // Popup: Node Created limit reached //
-      ///////////////////////////////////////
+      // Popup: Node Created limit reached
       popup.nodecreatedlimit = {};
       popup.nodecreatedlimit.isVisible = false;
       popup.nodecreatedlimit.continue = function() {
@@ -276,29 +309,20 @@ angular.module('Application.Controllers', [])
         this.isVisible = true;
       };
 
-      ////////////////////////
-      // Popup: Remove Node //
-      ////////////////////////
+      // Popup: Remove Node
       popup.removenode = {};
       popup.removenode.isVisible = false;
       popup.removenode.fields = {}
       popup.removenode.yes = function() {
           if (this.fields.nodegroup === "created_nodes") {
               var node = $scope.configuration[this.fields.nodegroup][this.fields.nodeindex];
-              ws.send(JSON.stringify({
-                    "event": "stop-node",
-                    "rpcuser": node.rpcusername,
-                    "rpcpass": node.rpcpassword,
-                    "rpcport": node.rpcport,
-                    "port": node.p2pport,
-                    "datadir": node.datadir,
-              }))
+              Requester.stopNODE(node["rpcusername"],node["rpcpassword"],node["rpcport"],node["p2pport"],node["datadir"])
           }
           let nodeRemoved = $scope.configuration[this.fields.nodegroup].splice(this.fields.nodeindex, 1)[0];
           if (nodeRemoved && this.fields.nodegroup === "created_nodes") {
               $scope.configuration.removed_nodes.push(nodeRemoved);
           }
-          saveConfiguration();
+          Requester.saveConfiguration();
           this.hide();
       };
       popup.removenode.no = function() {
@@ -308,7 +332,7 @@ angular.module('Application.Controllers', [])
           this.isVisible = true;
           this.fields.nodeindex = nodeindex;
           this.fields.nodegroup = nodegroup;
-          scrollTop();
+          Helpers.scrollTop();
       };
       popup.removenode.hide = function() {
           this.isVisible = false;
@@ -328,8 +352,9 @@ angular.module('Application.Controllers', [])
           node["rpcusername"] = popup.editnode.fields.rpcusername
           node["rpcpassword"] = popup.editnode.fields.rpcpassword
           node["address"] = popup.editnode.fields.address
+          node["datadir"] = popup.editnode.fields.datadir
           $scope.configuration[this.nodetype][this.index] = node;
-          saveConfiguration();
+          Requester.saveConfiguration();
           this.hide();
       };
       popup.editnode.startNode = function() {
@@ -360,7 +385,7 @@ angular.module('Application.Controllers', [])
           this.fields = JSON.parse(JSON.stringify(node));
           this.nodetype = type;
           this.index = index;
-          scrollTop();
+          Helpers.scrollTop();
       };
       popup.editnode.hide = function() {
           this.isVisible = false;
@@ -381,6 +406,15 @@ angular.module('Application.Controllers', [])
          if (page > 0) this.page = page;
          else this.page > 1 ? --this.page : false;
       };
+      popup.addnode.nextWithExisting = function() {
+          this.fields.category = "existing_nodes"
+          this.next(3)
+
+      };
+      popup.addnode.nextWithCreate = function() {
+          this.fields.category = "created_nodes"
+          this.progressIfCanCreate()
+      };
       popup.addnode.progressIfCanCreate = function() {
         if ($scope.configuration.created_nodes.length == $scope.nodecreatedlimit) {
             this.hide();
@@ -400,7 +434,7 @@ angular.module('Application.Controllers', [])
           node["rpcpassword"] = popup.addnode.fields.rpcpassword
           node["address"] = popup.addnode.fields.address
           $scope.configuration.existing_nodes.push(node);
-          saveConfiguration();
+          Requester.saveConfiguration();
       };
       popup.addnode.createNode = function() {
             this.page = 5;
@@ -413,13 +447,13 @@ angular.module('Application.Controllers', [])
             node["rpcpassword"] = randomString(10)
             node["address"] = popup.addnode.fields.address
             $scope.configuration.created_nodes.push(node);
-            saveConfiguration();
-            startNODE(node["rpcusername"],node["rpcpassword"],node["rpcport"],node["p2pport"],node["datadir"])
+            Requester.saveConfiguration();
+            Requester.startNODE(node["rpcusername"],node["rpcpassword"],node["rpcport"],node["p2pport"],node["datadir"])
       };
       popup.addnode.show = function() {
           this.isVisible = true;
-          fetchPorts();
-          scrollTop();
+          Helpers.fetchPorts();
+          Helpers.scrollTop();
       };
       popup.addnode.hide = function() {
           this.isVisible = false;
@@ -474,15 +508,24 @@ angular.module('Application.Controllers', [])
           let data = JSON.parse(message.data);
           if (data.event === "fetch-configuration") {
               $timeout(function() {
-                  hideWaitingIndicator();
-                  $scope.configuration = data.config ? JSON.parse(data.config) : configuration;
+                  Helpers.hideWaitingIndicator();
+                  $scope.configuration = data.config ? JSON.parse(data.config) : clone(Settings).defaultConfiguration;
                   if (!$scope.configuration.cache) {
                       $scope.configuration.cache = configuration.cache;
-                      saveConfiguration();
+                      Requester.saveConfiguration();
                   }
-                  handleInitState();
-                  poll();
-                  fetchSystemState();
+
+                  Requester.fetchSystemState();
+                  Requester.getinfo();
+                  Requester.check_running();
+                  Requester.periodic_checks();
+
+                  if (!$scope.configuration.cache.welcomeseen) {
+                      popup.welcome.isVisible = true;
+                      $scope.configuration.cache.welcomeseen = true;
+                      Requester.saveConfiguration();
+                  }
+
               })
           }
           if (data.event === "fetch-ports") {
@@ -494,7 +537,7 @@ angular.module('Application.Controllers', [])
           }
           if (data.event === "check-node") {
               $timeout(function() {
-                  var node = findNodeByRPC(data.rpcport)
+                  var node = Helpers.findNodeByRPC(data.rpcport)
                   if (node) node.nodestats_isrunning = data.alive;
               })
           }
@@ -508,15 +551,19 @@ angular.module('Application.Controllers', [])
           }
           if (data.event === "remove-datadir") {
               $timeout(function() {
-                  var index = findRemovedNodeIndexByDatadir(data.directory);
+                  var index = Helpers.findRemovedNodeIndexByDatadir(data.directory);
                   $scope.configuration.removed_nodes.splice(index, 1);
-                  saveConfiguration();
+                  Requester.saveConfiguration();
               })
           }
       });
 
       // Fetch configurations from disk
-      fetchConfiguration();
+      Requester.fetchConfiguration();
+
+      setInterval(function() {
+          Requester.reportNodes();
+      }, Settings.nodeReportInterval);
 
       // Set popup
       $scope.popup = popup;
