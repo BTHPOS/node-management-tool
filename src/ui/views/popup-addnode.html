@@ -5,8 +5,8 @@
           <div class="page" ng-show="popup.addnode.page == 1">
               <h3>NODE SETUP</h3>
               <p>Are you creating a new node or adding an existing node?</p>
-              <button ng-click="popup.addnode.next(3)">ADD EXISTING</button>
-              <button ng-click="popup.addnode.progressIfCanCreate()">CREATE NEW</button>
+              <button ng-click="popup.addnode.nextWithExisting()">ADD EXISTING</button>
+              <button ng-click="popup.addnode.nextWithCreate()">CREATE NEW</button>
           </div>
           <div class="page" ng-show="popup.addnode.page == 2">
               <h3>NODE LOCATION</h3>
@@ -20,15 +20,16 @@
           <div class="page" ng-show="popup.addnode.page == 3">
               <div ng-if="!popup.addnode.fields.wif">
                   <h3>NODE BTH ADDRESS</h3>
-                  <p>Provide the BTH address you would like to associate with this new full node?</p>
+                  <p>If you would like to participate in Proof-of-uptime, please provide the BTH address you would like to associate with this new full node?</p>
                   <div class="fields">
                       <div class="field">
                         <input type="text" ng-model="popup.addnode.fields.address" placeholder="(e.g. BBtWPS6LA52kTKM13x6zwDRkyJMehoBjv6)">
                         <a href="javascript:void(0);" ng-click="popup.addnode.generateBTHAddress()" class="link">Create a new address</a>
                       </div>
                   </div>
-                  <button ng-click="popup.addnode.back()" class="alt">BACK</button>
-                  <button ng-disabled="!validator.isValidIPADDRESS(popup.addnode.fields.address)" ng-click="popup.addnode.next()">CONTINUE</button>
+                  <button ng-show="popup.addnode.fields.category == 'existing_nodes'" ng-click="popup.addnode.page = 1" class="alt">BACK</button>
+                  <button ng-show="popup.addnode.fields.category == 'created_nodes'" ng-click="popup.addnode.page = 2" class="alt">BACK</button>
+                  <button ng-disabled="!validator.isValidBTHADDRESS(popup.addnode.fields.address)" ng-click="popup.addnode.next()">CONTINUE</button>
               </div>
               <div ng-if="popup.addnode.fields.wif">
                   <h3>CREATE BTH ADDRESS</h3>
@@ -43,12 +44,13 @@
                           <div>{{popup.addnode.fields.wif}}</div>
                       </div>
                   </div>
+                  <small class="notice">Be sure to download or write down your BTH address and Private key. You will NOT be able to generate this same address again.</small>
                   <a href="javascript:void(0);" ng-click="popup.addnode.chooseKeySaveLocation()" class="link">DOWNLOAD KEYS</a>
                   <form id="node-keys-form">
                       <input id="node-keys" ng-hide="true" onchange="angular.element(this).scope().popup.addnode.onChooseKeySaveLocation()" type="file" webkitdirectory />
                   </form>
-                  <button ng-show="!popup.addnode.fields.hasCreatedAddress" ng-click="popup.addnode.back()" class="alt">BACK</button>
-                  <button ng-show="popup.addnode.fields.hasCreatedAddress" ng-click="popup.addnode.fields.hasCreatedAddress = false" class="alt">BACK</button>
+                  <button ng-show="!popup.addnode.fields.wif" ng-click="popup.addnode.back()" class="alt">BACK</button>
+                  <button ng-show="popup.addnode.fields.wif" ng-click="popup.addnode.fields.wif = ''" class="alt">BACK</button>
                   <button ng-show="!popup.addnode.fields.location" ng-click="popup.addnode.next(4)">CONTINUE</button>
                   <button ng-show="popup.addnode.fields.location" ng-click="popup.addnode.createNode()">CONTINUE</button>
               </div>
